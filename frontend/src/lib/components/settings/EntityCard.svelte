@@ -120,12 +120,44 @@
 	</div>
 
 		<!-- ── Body: up to 3 info lines ── -->
-		{#if item.description || item.provider || item.model || item.tags || item.active !== undefined || item.connect_type || item.enabled !== undefined || item.type_connection || item.api_url || item.strategy || item.language || item.connection_type}
+		{#if item.description || item.provider || item.model || item.tags || item.active !== undefined || item.connect_type || item.enabled !== undefined || item.type_connection || item.api_url || item.strategy || item.language || item.connection_type || item.expert_language_plugin || item.architecture || item.stack_plugin}
 			<div class="px-3 py-2 flex flex-col gap-1">
 				{#if item.description}
 					<p class="text-[11px] leading-relaxed line-clamp-1" style="color: var(--text-muted)">
 						{item.description}
 					</p>
+				{/if}
+
+				<!-- Spec Wizard specific -->
+				{#if item.expert_language_plugin}
+					<div class="flex items-center gap-1.5">
+						<span class="text-[9px] font-medium uppercase tracking-wider" style="color: var(--text-faint)">
+							Expert Language Plugin
+						</span>
+						<span class="text-[10px] truncate" style="color: var(--text-muted)">
+							{item.expert_language_plugin}
+						</span>
+					</div>
+				{/if}
+				{#if item.architecture}
+					<div class="flex items-center gap-1.5">
+						<span class="text-[9px] font-medium uppercase tracking-wider" style="color: var(--text-faint)">
+							Select Base Architecture
+						</span>
+						<span class="text-[10px] truncate" style="color: var(--text-muted)">
+							{item.architecture}
+						</span>
+					</div>
+				{/if}
+				{#if item.stack_plugin}
+					<div class="flex items-center gap-1.5">
+						<span class="text-[9px] font-medium uppercase tracking-wider" style="color: var(--text-faint)">
+							Stack Plugin
+						</span>
+						<span class="text-[10px] truncate" style="color: var(--text-muted)">
+							{item.stack_plugin}
+						</span>
+					</div>
 				{/if}
 
 				<!-- Agents specific -->

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,7 +19,9 @@ import (
 	"ada-love-ide/internal/sessionfetch"
 	"ada-love-ide/internal/sessionstore"
 	"ada-love-ide/internal/skillmanager"
+	"ada-love-ide/internal/specwizardmgr"
 
+	llm "github.com/upperxcode/ada-llm-client"
 	adaCommands "github.com/upperxcode/ada-commands"
 	executor "github.com/upperxcode/ada-executor"
 	wiki "github.com/upperxcode/ada-llm-wiki"
@@ -35,6 +38,7 @@ type Engine struct {
 	SkillReg     *skillmanager.RegistryManager
 	Orch         *core.Orchestrator
 	Plugins      *plugins.PluginManager
+	SpecWizardMgr *specwizardmgr.Manager
 	Router       *adaCommands.CommandRouter
 	Executor     *executor.TaskExecutor
 	WorkspaceDir string
@@ -212,6 +216,57 @@ func New() (*Engine, error) {
 		pluginMgr = &plugins.PluginManager{}
 	}
 
+	specWizardMgr := specwizardmgr.New(store, pluginMgr)
+	specWizardMgr.SetLLMFn(func(ctx context.Context, systemPrompt, userPrompt string, temperature float64, maxTokens int) (string, error) {
+		fmt.Printf("[engine.llmFn] Looking up fixed model 'spec'\n")
+		specProvider, specModel, _ := store.GetFixedModel("spec")
+		fmt.Printf("[engine.llmFn] spec -> provider=%q model=%q\n", specProvider, specModel)
+		if specProvider == "" || specModel == "" {
+			return "", errors.New("[ALERTA] Modelo 'spec' não configurado. Configure um provider e modelo para 'spec' em Settings > Models.")
+		}
+
+		providers := store.ListProviders()
+		pCfg, ok := providers[specProvider]
+		fmt.Printf("[engine.llmFn] providers found=%d looking for %q -> ok=%v\n", len(providers), specProvider, ok)
+		if !ok {
+			return "", fmt.Errorf("[ALERTA] Provider '%s' configurado para o modelo 'spec' não foi encontrado", specProvider)
+		}
+		fmt.Printf("[engine.llmFn] provider cfg: type=%q baseURL=%q hasAPIKey=%v\n",
+			pCfg.TypeConnection, pCfg.APIURL, len(pCfg.APIKeys) > 0)
+
+		apiKey := ""
+		if len(pCfg.APIKeys) > 0 {
+			apiKey = pCfg.APIKeys[0].Key
+		}
+
+		client := llm.NewClient(llm.ConnectionConfig{
+			Type:    llm.ConnectionType(pCfg.TypeConnection),
+			BaseURL: pCfg.APIURL,
+			APIKey:  apiKey,
+		})
+
+		// Create a context with timeout so the call doesn't hang forever
+		llmCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		defer cancel()
+
+		fmt.Printf("[engine.llmFn] Calling Generate model=%q temp=%.1f max=%d\n", specModel, temperature, maxTokens)
+		resp, err := client.Generate(llmCtx, llm.InferenceRequest{
+			SystemPrompt: systemPrompt,
+			UserPrompt:   userPrompt,
+			Config: llm.InferenceConfig{
+				Model:       specModel,
+				Temperature: temperature,
+				MaxTokens:   maxTokens,
+			},
+		})
+		if err != nil {
+			fmt.Printf("[engine.llmFn] Generate FAILED: %v\n", err)
+			return "", fmt.Errorf("[ALERTA] Modelo 'spec' não respondeu: %w", err)
+		}
+		fmt.Printf("[engine.llmFn] Generate OK resp len=%d\n", len(resp))
+		return resp, nil
+	})
+
 	// Register health command after skm and pluginMgr are available
 	router.Register(commands.NewHealthCommand(
 		commands.HealthCheck{
@@ -306,6 +361,7 @@ func New() (*Engine, error) {
 		SkillReg:     regMgr,
 		Orch:         orch,
 		Plugins:      pluginMgr,
+		SpecWizardMgr: specWizardMgr,
 		Router:       router,
 		Executor:     taskExecutor,
 		WorkspaceDir: workspaceDir,
@@ -317,9 +373,8 @@ func (e *Engine) SetContext(ctx context.Context) { e.ctx = ctx }
 func (e *Engine) Context() context.Context { return e.ctx }
 
 func (e *Engine) Close() error {
-	if e.Plugins != nil {
-		e.Plugins.StopAll()
-	}
+	// Expert plugins are invoked on-demand via STDIO (no long-running server),
+	// so there is nothing to stop here.
 	return e.DB.Close()
 }
 

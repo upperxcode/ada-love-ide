@@ -1,26 +1,49 @@
 import type { EntityCardData } from '$lib/components/settings/EntityCard.svelte';
 import type { FieldConfig } from '$lib/components/settings/EntityEditDialog.svelte';
 
+// ── Spec Wizard option/recommendation shapes (mirror backend specwizardmgr) ──
+interface SpecOption {
+	id: string;
+	name: string;
+	description?: string;
+}
+interface SpecRecommendation {
+	level: string; // "success" | "warning" | "critical"
+	title: string;
+	description: string;
+}
+
 // ── Wails bindings (typed minimally for what the frontend needs) ──
 
 interface WailsApp {
-	GetAgents(): Promise<any[]>;
-	SetAgents(list: any[]): Promise<void>;
-	GetWorkers(): Promise<any[]>;
-	SetWorkers(list: any[]): Promise<void>;
-	GetSkills(): Promise<any[]>;
-	InstallSkill(registryName: string, slug: string, version: string): Promise<void>;
-	GetInstalledSkills(): Promise<string[]>;
-		GetSkillFullInfo(name: string): Promise<any>;
-		UpdateSkillConfig(cfg: any): Promise<void>;
-		UninstallSkill(name: string): Promise<void>;
-	SaveCustomSkill(name: string, description: string, tagsCSV: string, content: string): Promise<void>;
-	GetWorkspaces(): Promise<any[]>;
-	SaveWorkspace(ws: any): Promise<void>;
-	DeleteWorkspace(path: string): Promise<void>;
-	GetSpecWizards(): Promise<any[]>;
-	SaveSpecWizard(w: any): Promise<void>;
-	DeleteSpecWizard(id: string): Promise<void>;
+		GetAgents(): Promise<any[]>;
+		SetAgents(list: any[]): Promise<void>;
+		GetWorkers(): Promise<any[]>;
+		SetWorkers(list: any[]): Promise<void>;
+		GetSkills(): Promise<any[]>;
+		InstallSkill(registryName: string, slug: string, version: string): Promise<void>;
+		GetInstalledSkills(): Promise<string[]>;
+			GetSkillFullInfo(name: string): Promise<any>;
+			UpdateSkillConfig(cfg: any): Promise<void>;
+			UninstallSkill(name: string): Promise<void>;
+		SaveCustomSkill(name: string, description: string, tagsCSV: string, content: string): Promise<void>;
+		GetWorkspaces(): Promise<any[]>;
+		SaveWorkspace(ws: any): Promise<void>;
+		DeleteWorkspace(path: string): Promise<void>;
+		GetSpecWizards(): Promise<any[]>;
+		SaveSpecWizard(w: any): Promise<void>;
+		DeleteSpecWizard(id: string): Promise<void>;
+		GetExperts(): Promise<any[]>;
+		GetPatterns(lang: string): Promise<any[]>;
+		GetStacks(lang: string): Promise<any[]>;
+		GetStateManagement(lang: string): Promise<any[]>;
+		GetArchitectures(): Promise<any[]>;
+		GetPersistenceOptions(lang: string): Promise<SpecOption[]>;
+		GetEngineeringPhilosophies(lang: string): Promise<SpecOption[]>;
+		GetDesignPatterns(lang: string): Promise<SpecOption[]>;
+		GetDataPatterns(lang: string): Promise<SpecOption[]>;
+		ComputeHealth(cfg: any): Promise<number>;
+		GetRecommendations(cfg: any): Promise<SpecRecommendation[]>;
 	GetToolProfiles(): Promise<any[]>;
 	CreateToolProfile(name: string, color: string, icon: string): Promise<any>;
 	DeleteToolProfile(id: number): Promise<boolean>;

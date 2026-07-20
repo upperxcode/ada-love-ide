@@ -758,6 +758,43 @@ export namespace specwizard {
 
 }
 
+export namespace specwizardmgr {
+	
+	export class Option {
+	    id: string;
+	    name: string;
+	    description?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Option(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	    }
+	}
+	export class Recommendation {
+	    level: string;
+	    title: string;
+	    description: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Recommendation(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.level = source["level"];
+	        this.title = source["title"];
+	        this.description = source["description"];
+	    }
+	}
+
+}
+
 export namespace tool {
 	
 	export class ToolProfile {

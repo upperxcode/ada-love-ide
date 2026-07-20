@@ -14,6 +14,10 @@ export function AnswerQuestion(arg1, arg2) {
   return window['go']['main']['App']['AnswerQuestion'](arg1, arg2);
 }
 
+export function ComputeHealth(arg1) {
+  return window['go']['main']['App']['ComputeHealth'](arg1);
+}
+
 export function CreateSession(arg1, arg2) {
   return window['go']['main']['App']['CreateSession'](arg1, arg2);
 }
@@ -74,6 +78,18 @@ export function GetAvailableTools() {
   return window['go']['main']['App']['GetAvailableTools']();
 }
 
+export function GetDataPatterns(arg1) {
+  return window['go']['main']['App']['GetDataPatterns'](arg1);
+}
+
+export function GetDesignPatterns(arg1) {
+  return window['go']['main']['App']['GetDesignPatterns'](arg1);
+}
+
+export function GetEngineeringPhilosophies(arg1) {
+  return window['go']['main']['App']['GetEngineeringPhilosophies'](arg1);
+}
+
 export function GetEnvProviderKeys() {
   return window['go']['main']['App']['GetEnvProviderKeys']();
 }
@@ -90,12 +106,20 @@ export function GetPatterns(arg1) {
   return window['go']['main']['App']['GetPatterns'](arg1);
 }
 
+export function GetPersistenceOptions(arg1) {
+  return window['go']['main']['App']['GetPersistenceOptions'](arg1);
+}
+
 export function GetPredefinedConnections() {
   return window['go']['main']['App']['GetPredefinedConnections']();
 }
 
 export function GetProvidersConfig() {
   return window['go']['main']['App']['GetProvidersConfig']();
+}
+
+export function GetRecommendations(arg1) {
+  return window['go']['main']['App']['GetRecommendations'](arg1);
 }
 
 export function GetSessions(arg1) {
@@ -152,6 +176,10 @@ export function GetWorkspaceTemplates() {
 
 export function GetWorkspaces() {
   return window['go']['main']['App']['GetWorkspaces']();
+}
+
+export function InferField(arg1, arg2) {
+  return window['go']['main']['App']['InferField'](arg1, arg2);
 }
 
 export function InstallMCPFromRepo(arg1) {
@@ -272,10 +300,6 @@ export function SetWorkspaces(arg1) {
 
 export function StopGeneration(arg1) {
   return window['go']['main']['App']['StopGeneration'](arg1);
-}
-
-export function SuggestFieldValue(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SuggestFieldValue'](arg1, arg2, arg3);
 }
 
 export function TestConnection(arg1, arg2, arg3) {
