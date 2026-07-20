@@ -1,0 +1,377 @@
+#!/bin/fish
+
+# ─────────────────────────────────────────────────────────────
+#  ada-love-ide — painel interativo de desenvolvimento
+#  Stack: Go + Wails + Svelte 5 + Shadcn-Svelte + Tailwind
+# ─────────────────────────────────────────────────────────────
+
+cd (dirname (status -f))/..
+
+# ── Cores ────────────────────────────────────────────────────
+set blue    (set_color blue)
+set green   (set_color green)
+set red     (set_color red)
+set yellow  (set_color yellow)
+set purple  (set_color magenta)
+set cyan    (set_color cyan)
+set pink    (set_color --bold magenta)
+set bold    (set_color --bold)
+set dim     (set_color --dim)
+set normal  (set_color normal)
+
+# ── Constantes do projeto ─────────────────────────────────────
+set APP_NAME    "ada-love-ide"
+set APP_TITLE   "Ada Love IDE"
+set BUILD_DIR   "bin"
+set FRONTEND_DIR "frontend"
+set WAILS_TAGS  "webkit2_41"
+
+# ── Helpers de UI ─────────────────────────────────────────────
+function header
+    echo ""
+    echo "$purple""┌──────────────────────────────────────────────────────┐$normal"
+    echo "$purple""│         🤖 $APP_TITLE — Svelte 5 Dev Dashboard     │$normal"
+    echo "$purple""│         Go + Wails + Svelte + Tailwind CSS          │$normal"
+    echo "$purple""└──────────────────────────────────────────────────────┘$normal"
+    echo ""
+end
+
+function banner
+    set kind $argv[1]
+    set msg $argv[2..-1]
+    switch $kind
+        case info    echo "$blue   ℹ️  $msg$normal"
+        case ok      echo "$green   ✅ $msg$normal"
+        case warn    echo "$yellow   ⚠️  $msg$normal"
+        case err     echo "$red   ❌ $msg$normal"
+        case build   echo "$green   🔨 $msg$normal"
+        case clean   echo "$yellow   🧹 $msg$normal"
+        case test    echo "$cyan   🧪 $msg$normal"
+        case run     echo "$blue   ▶️  $msg$normal"
+        case '*'     echo "   $msg$normal"
+    end
+end
+
+function wait_key
+    echo ""
+    read -p 'echo -e "$yellow   ⏎ Pressione ENTER para voltar ao menu...$normal"' _unused
+end
+
+# ── Verifica dependências ────────────────────────────────────
+function check_deps
+    set missing
+    if not command -v go >/dev/null
+        set missing $missing "Go (https://go.dev)"
+    end
+    if not command -v node >/dev/null
+        set missing $missing "Node.js (https://nodejs.org)"
+    end
+    if not command -v npm >/dev/null
+        set missing $missing "npm"
+    end
+    if not command -v wails >/dev/null
+        set missing $missing "Wails CLI (go install github.com/wailsapp/wails/v2/cmd/wails@latest)"
+    end
+    if test (count $missing) -gt 0
+        echo "$red   ❌ Dependências faltando:$normal"
+        for m in $missing
+            echo "$red      • $m$normal"
+        end
+        echo ""
+        read -p 'echo -e "$yellow   ⏎ Pressione ENTER para sair...$normal"' _
+        exit 1
+    end
+end
+
+# ── Ações: Desenvolvimento ───────────────────────────────────
+function action_dev_frontend
+    banner run "Iniciando SvelteKit Dev (frontend standalone)..."
+    cd $FRONTEND_DIR
+    npm run dev
+    cd ..
+end
+
+function action_dev_wails
+    banner run "Iniciando Wails Dev (Go + Svelte)..."
+    wails dev -tags "$WAILS_TAGS"
+end
+
+function action_dev_full
+    banner build "Instalando dependências do frontend..."
+    cd $FRONTEND_DIR
+    and npm install
+    and cd ..
+
+    banner ok "Dependências prontas"
+    banner run "Iniciando Wails Dev (hot-reload Go + Svelte)..."
+    wails dev -tags "$WAILS_TAGS"
+end
+
+# ── Ações: Build ─────────────────────────────────────────────
+function action_build_wails
+    banner build "Gerando binário de produção (Wails)..."
+    mkdir -p $BUILD_DIR
+    and bash scripts/build.sh
+    and banner ok "Binário em $BUILD_DIR/$APP_NAME"
+end
+
+function action_build_wails_debug
+    banner build "Gerando binário DEBUG (com símbolos, sem -ldflags)..."
+    mkdir -p $BUILD_DIR
+    and wails build -tags "$WAILS_TAGS" -debug -o $BUILD_DIR/$APP_NAME-debug
+    and banner ok "Binário debug em $BUILD_DIR/$APP_NAME-debug"
+end
+
+function action_build_frontend
+    banner build "Build de produção do frontend SvelteKit..."
+    cd $FRONTEND_DIR
+    and npm run build
+    and cd ..
+    and banner ok "Frontend compilado em $FRONTEND_DIR/.svelte-kit/output"
+end
+
+function action_preview_frontend
+    banner run "Preview do build de produção..."
+    cd $FRONTEND_DIR
+    and npm run preview
+    and cd ..
+end
+
+# ── Ações: Instalação / Limpeza ─────────────────────────────
+function action_install
+    banner info "Instalando dependências..."
+    banner info "→ npm install (frontend SvelteKit)"
+    and cd $FRONTEND_DIR
+    and npm install
+    and cd ..
+    and banner ok "Dependências do frontend instaladas"
+end
+
+function action_add_ui_component
+    if test (count $argv) -lt 1
+        banner err "Uso: forneça o nome do componente shadcn (ex: dialog, popover)"
+        return
+    end
+    set component $argv[1]
+    banner build "Adicionando shadcn-svelte: $component..."
+    cd $FRONTEND_DIR
+    and npx shadcn@latest add $component --yes --overwrite
+    and cd ..
+    banner ok "Componente '$component' adicionado"
+end
+
+function action_clean
+    banner clean "Limpando cache..."
+    go clean -cache
+    rm -rf $BUILD_DIR/ build/
+    and cd $FRONTEND_DIR
+    rm -rf .svelte-kit/ node_modules/.vite/
+    and cd ..
+    and banner ok "Cache limpo"
+end
+
+function action_clean_deep
+    banner clean "Deep clean — removendo node_modules..."
+    go clean -cache
+    rm -rf $BUILD_DIR/ build/
+    and cd $FRONTEND_DIR
+    rm -rf .svelte-kit/ node_modules/
+    and cd ..
+    and banner ok "Deep clean concluído. Rode 'npm install' antes de dev."
+end
+
+# ── Ações: Qualidade ─────────────────────────────────────────
+function action_test_go
+    banner test "Rodando testes Go com race detector..."
+    go test -v -race ./...
+end
+
+function action_test_go_short
+    banner test "Rodando testes Go (modo rápido)..."
+    go test -v ./...
+end
+
+function action_check_frontend
+    banner test "Rodando svelte-check (TypeScript + Svelte)..."
+    cd $FRONTEND_DIR
+    and npm run check
+    and cd ..
+    and banner ok "svelte-check passou"
+end
+
+function action_vet
+    banner test "go vet..."
+    go vet ./...
+    and banner ok "go vet OK"
+end
+
+function action_lint_go
+    if not command -v golangci-lint >/dev/null
+        banner warn "golangci-lint não encontrado — instalando..."
+        go install github.com/golangci-lint/golangci-lint/cmd/golangci-lint@latest
+    end
+    banner test "golangci-lint run..."
+    golangci-lint run ./...
+end
+
+function action_format_go
+    banner info "gofmt + goimports..."
+    if command -v goimports >/dev/null
+        goimports -w .
+    else
+        gofmt -s -w .
+    end
+    and banner ok "Formatado"
+end
+
+function action_format_frontend
+    banner info "Prettier (frontend)..."
+    cd $FRONTEND_DIR
+    if command -v npx >/dev/null
+        npx prettier --write "src/**/*.{svelte,ts}" 2>/dev/null
+    else
+        banner warn "Prettier não encontrado — instale com: npm i -D prettier"
+    end
+    and cd ..
+    and banner ok "Formatado"
+end
+
+# ── Ajuda ─────────────────────────────────────────────────────
+function action_help
+    echo ""
+    echo "$bold$cyan   Arquitetura: Go + Wails + Svelte 5 + Shadcn-Svelte + Tailwind$normal"
+    echo ""
+    echo "$green   Frontend (SvelteKit)$normal"
+    echo "     $FRONTEND_DIR/src/routes/       — páginas SvelteKit"
+    echo "     $FRONTEND_DIR/src/lib/components/ — componentes UI"
+    echo "     $FRONTEND_DIR/src/lib/stores/   — stores reativos (Svelte 5 runes)"
+    echo "     $FRONTEND_DIR/src/lib/themes/   — definições de temas (cores, fontes, ícones)"
+    echo "     $FRONTEND_DIR/src/app.css       — CSS variables para theming dinâmico"
+    echo ""
+    echo "$green   Backend (Go + Wails)$normal"
+    echo "     internal/api/        — handlers e rotas"
+    echo "     internal/engine/     — orquestrador"
+    echo "     internal/core/       — interfaces e tipos"
+    echo "     internal/db/         — persistência"
+    echo "     scripts/build.sh     — build pipeline Wails"
+    echo ""
+    echo "$yellow   Integração Wails$normal"
+    echo "     Os bindings Go são gerados em $FRONTEND_DIR/wailsjs/go/"
+    echo "     Stores em Svelte 5 consomem via async calls (sem HTTP/HTMX)"
+    echo "     Temas são sincronizados via ThemeStore.hydrateFromBackend()"
+    echo ""
+    read -p 'echo -e "$yellow   ⏎ ENTER para voltar...$normal"' _
+end
+
+# ── Menu ──────────────────────────────────────────────────────
+function show_menu
+    clear
+    header
+    echo "$bold   ▶  Desenvolvimento$normal"
+    echo "$pink   1$normal  🎨  SvelteKit Dev (frontend standalone)"
+    echo "$pink   2$normal  🚀  Wails Dev (Go + Svelte hot-reload)"
+    echo "$pink   3$normal  🔄  Full Dev (npm install + Wails dev)"
+    echo ""
+    echo "$bold   ▶  Build$normal"
+    echo "$green   4$normal  🐛  Wails Build Debug"
+    echo "$green   5$normal  🔧  Wails Build (produção)"
+    echo "$green   6$normal  📦  Frontend Build (SvelteKit)"
+    echo "$green   7$normal  👁️  Frontend Preview (build local)"
+    echo ""
+    echo "$bold   ▶  Qualidade$normal"
+    echo "$cyan   8$normal  🧪  Testes Go (race)"
+    echo "$cyan   9$normal  ⚡  Testes Go (rápido)"
+    echo "$cyan  10$normal  🔍  svelte-check (TS + Svelte)"
+    echo "$cyan  11$normal  🧹  go vet"
+    echo "$cyan  12$normal  📋  golangci-lint"
+    echo "$cyan  13$normal  📐  gofmt/goimports"
+    echo "$cyan  14$normal  💅  Prettier (frontend)"
+    echo ""
+    echo "$bold   ▶  Manutenção$normal"
+    echo "$purple 15$normal  📥  npm install (frontend)"
+    echo "$purple 16$normal  🧩  Adicionar componente shadcn"
+    echo "$purple 17$normal  🧹  Limpar cache"
+    echo "$purple 18$normal  🗑️  Deep clean (com node_modules)"
+    echo "$purple 19$normal  ❓  Ajuda / Estrutura"
+    echo ""
+    echo "$red   0$normal  🚪  Sair"
+    echo ""
+end
+
+# ── Loop principal ────────────────────────────────────────────
+check_deps
+
+while true
+    show_menu
+    read -p 'echo -e "$yellow   👉 Escolha (0-19): $normal"' opt
+
+    switch "$opt"
+        case 1
+            action_dev_frontend
+            wait_key
+        case 2
+            action_dev_wails
+            wait_key
+        case 3
+            action_dev_full
+            wait_key
+        case 4
+            action_build_wails_debug
+            wait_key
+        case 5
+            action_build_wails
+            wait_key
+        case 6
+            action_build_frontend
+            wait_key
+        case 7
+            action_preview_frontend
+            wait_key
+        case 8
+            action_test_go
+            wait_key
+        case 9
+            action_test_go_short
+            wait_key
+        case 10
+            action_check_frontend
+            wait_key
+        case 11
+            action_vet
+            wait_key
+        case 12
+            action_lint_go
+            wait_key
+        case 13
+            action_format_go
+            wait_key
+        case 14
+            action_format_frontend
+            wait_key
+        case 15
+            action_install
+            wait_key
+        case 16
+            echo -n "$yellow   Nome do componente: $normal"
+            read -l comp
+            if test -n "$comp"
+                action_add_ui_component $comp
+            end
+            wait_key
+        case 17
+            action_clean
+            wait_key
+        case 18
+            action_clean_deep
+            wait_key
+        case 19
+            action_help
+        case 0
+            clear
+            echo "$green   👋 Até mais!$normal"
+            break
+        case '*'
+            banner err "Opção inválida: '$opt'"
+            sleep 1
+    end
+end

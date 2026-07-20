@@ -1,0 +1,14 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "ada-love-ide",
+  "outputfilename": "ada-love-ide",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "http://localhost:5173",
+  "author": {
+    "name": "Ada Love IDE",
+    "email": ""
+  },
+  "build:tags": "webkit2_41"
+}
