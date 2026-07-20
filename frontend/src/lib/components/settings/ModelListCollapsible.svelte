@@ -14,12 +14,11 @@
 	let { value = '{}', onOpenManager, onchange, label }: ModelListCollapsibleProps = $props();
 
 	// Internal state parsed from value
-	let models = $state<Record<string, any>>({});
-	$effect(() => {
+	let models = $derived.by(() => {
 		try {
-			models = typeof value === 'string' ? JSON.parse(value || '{}') : (value || {});
-		} catch (e) {
-			models = {};
+			return typeof value === 'string' ? JSON.parse(value || '{}') : (value || {});
+		} catch {
+			return {};
 		}
 	});
 
@@ -27,19 +26,15 @@
 	const modelEntries = $derived(Object.entries(models));
 
 	function toggleProp(modelId: string, prop: string) {
-		const updatedModels = { ...models };
-		const settings = { ...updatedModels[modelId] };
+		const settings = { ...models[modelId] };
 		settings[prop] = !settings[prop];
-		updatedModels[modelId] = settings;
-		
-		models = updatedModels;
+		const updatedModels = { ...models, [modelId]: settings };
 		onchange?.(JSON.stringify(updatedModels));
 	}
 
 	function removeModel(modelId: string) {
 		const updatedModels = { ...models };
 		delete updatedModels[modelId];
-		models = updatedModels;
 		onchange?.(JSON.stringify(updatedModels));
 	}
 

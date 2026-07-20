@@ -56,6 +56,7 @@
 	<!-- Add form -->
 	<div class="flex items-end gap-2">
 		<div class="flex flex-1 flex-col gap-1.5">
+			<!-- svelte-ignore a11y_label_has_associated_control -->
 			<label class="text-[9px] uppercase font-bold tracking-widest px-1" style="color: var(--text-faint)">Key</label>
 			<input
 				type="text"
@@ -66,6 +67,7 @@
 			/>
 		</div>
 		<div class="flex flex-[1.5] flex-col gap-1.5">
+			<!-- svelte-ignore a11y_label_has_associated_control -->
 			<label class="text-[9px] uppercase font-bold tracking-widest px-1" style="color: var(--text-faint)">Value</label>
 			<input
 				type="text"

@@ -58,6 +58,10 @@
 	let loadingOptions = $state(false);
 	let isLoadingOptions = $state(false);
 
+	let newLibName = $state('');
+	let newLibVersion = $state('');
+	let newLibMandatory = $state(false);
+
 	// Initialize when opening
 	let isInitialized = $state(false);
 
@@ -75,12 +79,20 @@
 		currentStep = 1;
 		
 		if (entity) {
-			const savedExpertPlugin = entity.expert_language_plugin;
+			const savedLang = entity.expert_language_plugin;
 			formData = { ...entity };
-			formData.expert_language_plugin = savedExpertPlugin;
-			
-			if (formData.expert_language_plugin) {
-				await loadPluginOptions(formData.expert_language_plugin);
+			formData.expert_language_plugin = savedLang;
+
+			if (savedLang) {
+				const pluginExists = expertPlugins.some((p: any) => p.language === savedLang);
+				if (!pluginExists) {
+					toastStore.error(
+						`Plugin "${savedLang}" não está instalado`,
+						'Os campos de Architecture, Stack e State Management não poderão ser carregados.'
+					);
+				} else {
+					await loadPluginOptions(savedLang);
+				}
 			}
 		} else {
 			formData = {
@@ -109,12 +121,6 @@
 			};
 		}
 	}
-
-	$effect(() => {
-		if (open && isInitialized && entity && formData.expert_language_plugin) {
-			loadPluginOptions(formData.expert_language_plugin);
-		}
-	});
 
 	async function loadExpertPlugins() {
 		try {
@@ -145,6 +151,27 @@
 		}
 	}
 
+	async function handleExpertChange(lang: string) {
+		formData.expert_language_plugin = lang;
+		if (!lang) return;
+
+		const pluginExists = expertPlugins.some((p: any) => p.language === lang);
+		if (!pluginExists) {
+			toastStore.error(
+				`Plugin "${lang}" não encontrado`,
+				'O Expert Language Plugin selecionado não está instalado ou ativado.'
+			);
+			return;
+		}
+
+		await loadPluginOptions(lang);
+		formData.architecture = '';
+		formData.persistence = '';
+		formData.stack_plugin = '';
+		formData.dependency_manifest = [];
+		formData.business.state_management = '';
+	}
+
 	const steps = [
 		{ id: 1, label: 'Identity' },
 		{ id: 2, label: 'Architecture' },
@@ -160,6 +187,18 @@
 
 	function prevStep() {
 		if (currentStep > 1) currentStep--;
+	}
+
+	function addLibrary() {
+		if (!newLibName.trim() || !newLibVersion.trim()) return;
+		formData.dependency_manifest = [...(formData.dependency_manifest || []), {
+			lib: newLibName.trim(),
+			ver: newLibVersion.trim(),
+			mandatory: newLibMandatory
+		}];
+		newLibName = '';
+		newLibVersion = '';
+		newLibMandatory = false;
 	}
 
 	function handleSave() {
@@ -254,14 +293,17 @@
 				{#if currentStep === 1}
 					<div class="flex flex-col gap-6">
 						<div class="flex flex-col gap-1.5">
+							<!-- svelte-ignore a11y_label_has_associated_control -->
 							<label class="text-xs font-bold uppercase text-[var(--text-muted)] px-1">Project Name</label>
 							<input bind:value={formData.name} placeholder="Local Vault" class={inputBase} />
 						</div>
 
 						<div class="flex flex-col gap-1.5">
+							<!-- svelte-ignore a11y_label_has_associated_control -->
 							<label class="text-xs font-bold uppercase text-[var(--text-muted)] px-1">Expert Language Plugin</label>
 							<ThemedSelect
 								value={formData.expert_language_plugin}
+								onValueChange={handleExpertChange}
 								options={expertPlugins.map(p => ({ label: p.name, value: p.language }))}
 								class="w-full h-12"
 							/>
@@ -292,11 +334,13 @@
 								</Collapsible.Trigger>
 								<Collapsible.Content class="pt-6 flex flex-col gap-6">
 									<div class="flex flex-col gap-1.5">
+										<!-- svelte-ignore a11y_label_has_associated_control -->
 										<label class="text-[11px] font-bold uppercase tracking-widest text-[var(--text-faint)] px-1">PRD — Problem Definition</label>
 										<ExpandableTextarea bind:value={formData.prd} minHeight={120} placeholder="Define the core problem..." />
 									</div>
 
 									<div class="flex flex-col gap-1.5">
+										<!-- svelte-ignore a11y_label_has_associated_control -->
 										<label class="text-[11px] font-bold uppercase tracking-widest text-[var(--text-faint)] px-1">Functional Requirements</label>
 										<ExpandableTextarea 
 											value={formData.functional_requirements?.join('\n')} 
@@ -307,6 +351,7 @@
 									</div>
 
 									<div class="flex flex-col gap-1.5">
+										<!-- svelte-ignore a11y_label_has_associated_control -->
 										<label class="text-[11px] font-bold uppercase tracking-widest text-[var(--text-faint)] px-1">Non-Functional Requirements</label>
 										<ExpandableTextarea 
 											value={formData.non_functional_requirements?.join('\n')} 
@@ -329,6 +374,7 @@
 								<h3 class="text-sm font-bold uppercase tracking-widest">Architecture</h3>
 							</div>
 							<div class="flex flex-col gap-1.5">
+								<!-- svelte-ignore a11y_label_has_associated_control -->
 								<label class="text-xs font-bold uppercase text-[var(--text-faint)] px-1 mb-1">Select Base Architecture</label>
 								<ThemedSelect
 									value={formData.architecture}
@@ -347,6 +393,7 @@
 								<h3 class="text-sm font-bold uppercase tracking-widest">Persistence</h3>
 							</div>
 							<div class="flex flex-col gap-1.5">
+								<!-- svelte-ignore a11y_label_has_associated_control -->
 								<label class="text-xs font-bold uppercase text-[var(--text-faint)] px-1 mb-1">Persistence Strategy</label>
 								<ThemedSelect
 									value={formData.persistence}
@@ -368,6 +415,7 @@
 							</div>
 							
 							<div class="flex flex-col gap-3">
+								<!-- svelte-ignore a11y_label_has_associated_control -->
 								<label class="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-faint)] px-1">Engineering Philosophies</label>
 								<div class="flex flex-wrap gap-3">
 									{#each ['KISS', 'DRY', 'SOLID', 'YAGNI'] as phil}
@@ -398,6 +446,7 @@
 							</div>
 
 							<div class="flex flex-col gap-3 mt-4">
+								<!-- svelte-ignore a11y_label_has_associated_control -->
 								<label class="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-faint)] px-1">Design Patterns (GoF)</label>
 								<div class="flex flex-wrap gap-3">
 									{#each ['Adapter', 'Facade', 'Builder', 'Factory', 'Singleton', 'Observer', 'Strategy'] as pat}
@@ -428,6 +477,7 @@
 							</div>
 
 							<div class="flex flex-col gap-3 mt-4">
+								<!-- svelte-ignore a11y_label_has_associated_control -->
 								<label class="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-faint)] px-1">Data Patterns — Access</label>
 								<div class="flex flex-wrap gap-3">
 									{#each ['Repository', 'Active Record', 'DAO'] as dp}
@@ -461,6 +511,7 @@
 				{:else if currentStep === 4}
 					<div class="flex flex-col gap-6">
 						<div class="flex flex-col gap-1.5">
+							<!-- svelte-ignore a11y_label_has_associated_control -->
 							<label class="text-xs font-bold uppercase text-[var(--text-muted)] px-1">Stack Plugin</label>
 							<ThemedSelect
 								value={formData.stack_plugin}
@@ -468,11 +519,11 @@
 									formData.stack_plugin = v;
 									const selectedStack = stacks.find(s => s.id === v);
 									if (selectedStack && selectedStack.libraries) {
-										formData.dependency_manifest = selectedStack.libraries.map((lib: any) => ({
-											name: lib.name,
-											version: 'latest',
-											mandatory: !!lib.mandatory
-										}));
+								formData.dependency_manifest = selectedStack.libraries.map((lib: any) => ({
+										lib: lib.name,
+										ver: 'latest',
+										mandatory: !!lib.mandatory
+									}));
 									}
 								}}
 								options={stacks.map(s => ({ label: s.name, value: s.id }))}
@@ -526,13 +577,38 @@
 											<p class="text-xs uppercase font-bold tracking-widest">No dependencies selected</p>
 										</div>
 									{/if}
-									<button 
-										type="button"
-										onclick={() => (formData.dependency_manifest = [...(formData.dependency_manifest || []), {name: 'new-library', version: '1', mandatory: false}])}
-										class="flex items-center justify-center gap-2 mt-4 py-4 border-2 border-dashed border-[var(--border-primary)] rounded-2xl text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)] hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/5 transition-all cursor-pointer"
-									>
-										<Icon name="plus" size={16} /> Add Library
-									</button>
+									<div class="grid grid-cols-[1fr_100px_100px_auto] gap-4 items-end mt-4">
+										<div class="flex flex-col gap-1">
+											<label class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">Library</label>
+											<input
+												type="text"
+												bind:value={newLibName}
+												placeholder="library name"
+												class="bg-[var(--surface-input)] border border-[var(--border-primary)] rounded-lg px-3 py-2 text-xs font-mono outline-none focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
+											/>
+										</div>
+										<div class="flex flex-col gap-1">
+											<label class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">Version</label>
+											<input
+												type="text"
+												bind:value={newLibVersion}
+												placeholder="e.g. 1.0.0"
+												class="bg-[var(--surface-input)] border border-[var(--border-primary)] rounded-lg px-3 py-2 text-xs font-mono outline-none focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
+											/>
+										</div>
+										<div class="flex flex-col gap-1 items-center">
+											<label class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">Mandatory</label>
+											<Switch checked={newLibMandatory} onCheckedChange={(v) => newLibMandatory = v} size="sm" />
+										</div>
+										<button
+											type="button"
+											disabled={!newLibName.trim() || !newLibVersion.trim()}
+											onclick={addLibrary}
+											class="flex items-center justify-center gap-2 px-6 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:pointer-events-none {newLibName.trim() && newLibVersion.trim() ? 'bg-[var(--accent-primary)] text-white shadow-lg hover:brightness-110 active:scale-90' : 'bg-[var(--surface-input)] border border-[var(--border-primary)] text-[var(--text-muted)]'}"
+										>
+											<Icon name="plus" size={14} /> Add
+										</button>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -540,6 +616,7 @@
 				{:else if currentStep === 5}
 					<div class="flex flex-col gap-8">
 						<div class="flex flex-col gap-1.5">
+							<!-- svelte-ignore a11y_label_has_associated_control -->
 							<label class="text-xs font-bold uppercase text-[var(--text-muted)] px-1">State Management</label>
 							<ThemedSelect
 								value={formData.business.state_management}
@@ -550,11 +627,13 @@
 						</div>
 
 						<div class="flex flex-col gap-2">
+							<!-- svelte-ignore a11y_label_has_associated_control -->
 							<label class="text-xs font-bold uppercase text-[var(--text-muted)] px-1">API Contract / Communication</label>
 							<ExpandableTextarea bind:value={formData.business.api_contract} minHeight={120} placeholder="Describe the API surface..." />
 						</div>
 
 						<div class="flex flex-col gap-2">
+							<!-- svelte-ignore a11y_label_has_associated_control -->
 							<label class="text-xs font-bold uppercase text-[var(--text-muted)] px-1">Customization Details & Nuances</label>
 							<ExpandableTextarea bind:value={formData.business.customization_details} minHeight={120} placeholder="Detail edge cases and nuances..." />
 						</div>
@@ -564,6 +643,7 @@
 						<div class="flex flex-col gap-2">
 							<h3 class="text-sm font-bold uppercase tracking-widest px-1">Final Adjustments & Advisor</h3>
 							<div class="flex flex-col gap-2 mt-2">
+								<!-- svelte-ignore a11y_label_has_associated_control -->
 								<label class="text-[11px] font-bold uppercase text-[var(--text-faint)] px-1">Implementation Instructions</label>
 								<ExpandableTextarea bind:value={formData.business.final_adjustments} minHeight={150} placeholder="Any specific instructions for the AI advisor..." />
 							</div>

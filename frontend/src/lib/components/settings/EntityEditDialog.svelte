@@ -61,7 +61,7 @@
 	let headerColor = $derived(formData.color ?? '#3f3f46');
 
 	// ── Derived: available models for selected provider (cascade) ──
-	let availableModels = $derived(() => {
+	let availableModels = $derived.by(() => {
 		const provider = formData.provider;
 		if (!provider) return [];
 		return providersStore.getModels(provider).map((m) => ({
@@ -172,7 +172,7 @@
 	}
 
 	// ── Provider select options (from backend) ──
-	let providerOptions = $derived(() =>
+	let providerOptions = $derived(
 		providersStore.providers.map((p) => ({ value: p.name, label: p.name }))
 	);
 
@@ -213,8 +213,8 @@
 										onchange={(v) => updateField(field.key, v)}
 										providerName={formData.name}
 										apiUrl={formData.api_url}
+										connectionType={formData.type_connection}
 									/>
-								/>
 								{:else if field.key === 'models'}
 									<ModelListCollapsible
 										label={field.label}
@@ -245,7 +245,7 @@
 										<ThemedSelect
 											value={formData[field.key] ?? ''}
 											onValueChange={(v) => updateField(field.key, v)}
-											options={providerOptions()}
+											options={providerOptions}
 											placeholder="Select provider"
 											class="w-52"
 										/>
@@ -254,7 +254,7 @@
 										<ThemedSelect
 											value={formData[field.key] ?? ''}
 											onValueChange={(v) => updateField(field.key, v)}
-											options={availableModels()}
+											options={availableModels}
 											placeholder="Select model"
 											class="w-52"
 											disabled={!formData.provider}

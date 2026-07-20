@@ -41,12 +41,24 @@
 	let availableModels = $state<ModelInfo[]>([]);
 	let loading = $state(false);
 
-	// Load real models from backend when dialog opens
+	// Parse currentModels robustly (may be a JSON string or object)
+	function resolveCurrentModels(cm: Record<string, any> | string): Record<string, any> {
+		if (typeof cm === 'string') {
+			try { return JSON.parse(cm || '{}'); } catch { return {}; }
+		}
+		return cm || {};
+	}
+
+	// Load real models from backend when dialog opens (guard prevents re-run loop)
+	let wasOpen = $state(false);
 	$effect(() => {
-		if (open) {
-			const keys = Object.keys(currentModels || {});
-			selectedIds = new Set(keys);
+		if (open && !wasOpen) {
+			wasOpen = true;
+			const cm = resolveCurrentModels(currentModels);
+			selectedIds = new Set(Object.keys(cm));
 			loadModels();
+		} else if (!open) {
+			wasOpen = false;
 		}
 	});
 
@@ -69,6 +81,7 @@
 				key
 			);
 			
+			const cm = resolveCurrentModels(currentModels);
 			availableModels = list.map((m: any) => ({
 				id: m.id,
 				name: m.name,
@@ -77,7 +90,7 @@
 				vision: m.vision,
 				embedding: m.embedding,
 				tools: m.tools,
-				installed: Object.keys(currentModels || {}).includes(m.id)
+				installed: Object.keys(cm).includes(m.id)
 			}));
 		} catch (e) {
 			toastStore.error('Fetch Models Error', String(e));
@@ -86,7 +99,7 @@
 		}
 	}
 
-	let filteredModels = $derived(() => {
+	let filteredModels = $derived.by(() => {
 		return availableModels.filter(m => {
 			const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
 								 m.id.toLowerCase().includes(searchQuery.toLowerCase());
@@ -98,7 +111,7 @@
 	});
 
 	function toggleSelectAll() {
-		const current = filteredModels();
+		const current = filteredModels;
 		if (selectedIds.size === current.length) {
 			selectedIds.clear();
 		} else {
@@ -128,21 +141,12 @@
 </script>
 
 <Dialog 
-	bind:open 
-	onOpenChange={(val) => {
-		// Prevent closing by clicking outside if val is false
-		// But allow explicit onClose calls
-		if (!val) {
-			// If bits-ui tries to close it (esc or click outside), we ignore it
-			// The only way to close is through Cancel or Confirm buttons
-			return;
-		}
-	}}
+	bind:open
 >
 	<DialogPortal>
 		<DialogOverlay class="z-[60]" />
 		<DialogContent 
-			class="z-[70] sm:max-w-xl p-0 overflow-hidden flex flex-col bg-[var(--bg-tertiary)] rounded-2xl border border-[var(--border-primary)] shadow-2xl max-h-[80dvh]"
+			class="z-[70] sm:max-w-xl p-0 overflow-hidden flex flex-col bg-[var(--surface-elevated)] rounded-2xl border border-[var(--border-primary)] shadow-2xl max-h-[80dvh]"
 			showCloseButton={false}
 			interactOutsideBehavior="ignore"
 			escapeKeydownBehavior="ignore"
@@ -192,9 +196,9 @@
 						<Icon name="loader" size={32} class="animate-spin mb-4" />
 						<p class="text-xs uppercase font-bold tracking-widest">Fetching models from provider...</p>
 					</div>
-				{:else if filteredModels().length > 0}
+				{:else if filteredModels.length > 0}
 					<div class="flex flex-col gap-1">
-						{#each filteredModels() as model}
+						{#each filteredModels as model}
 							<button 
 								type="button"
 								onclick={() => {
@@ -251,7 +255,7 @@
 					class="text-[11px] font-bold uppercase tracking-wider hover:underline cursor-pointer" 
 					style="color: var(--text-muted)"
 				>
-					{selectedIds.size === filteredModels().length ? 'Deselect All' : 'Select All'}
+					{selectedIds.size === filteredModels.length ? 'Deselect All' : 'Select All'}
 				</button>
 
 				<div class="flex items-center gap-3">

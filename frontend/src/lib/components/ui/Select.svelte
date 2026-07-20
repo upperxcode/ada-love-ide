@@ -32,13 +32,18 @@
 	// Store the fallback label when value is not in options yet (async loading)
 	let fallbackLabel = $state<string | undefined>();
 
-	// Handle value change explicitly to trigger onValueChange prop
+	// Call onValueChange only on actual user interaction, not on prop updates
+	function handleChange(e: Event) {
+		const target = e.currentTarget as HTMLSelectElement;
+		const v = target.value;
+		value = v;
+		onValueChange?.(v);
+	}
+
+	// Cache label when value is not yet in options (async loading)
 	$effect(() => {
 		if (value !== undefined) {
-			onValueChange?.(value);
-			// If value is not in options, try to find its label from previous options
 			if (!valueInOptions && !fallbackLabel) {
-				// Try to find label from previous render's options
 				fallbackLabel = options.find(opt => opt.value === value)?.label;
 			}
 		} else {
@@ -50,7 +55,8 @@
 <div class={cn("themed-select-container", className)}>
 	<select 
 		{disabled} 
-		bind:value={value}
+		value={value}
+		onchange={handleChange}
 		class="custom-select"
 	>
 		<button aria-label="select" class="select-trigger">

@@ -48,6 +48,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	role="menu"
+	tabindex="-1"
 	class={cn('relative inline-flex', className)}
 	bind:this={containerEl}
 	onkeydown={handleKeydown}

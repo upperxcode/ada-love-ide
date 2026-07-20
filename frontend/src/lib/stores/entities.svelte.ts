@@ -187,7 +187,7 @@ export const FIELD_CONFIGS: Record<string, FieldConfig[]> = {
 				{ key: 'name', label: 'Provider Name', description: 'Unique identifier for this provider', type: 'text', required: true, placeholder: 'openai, anthropic, ollama...' },
 				{ key: 'api_url', label: 'API URL', description: 'Base URL for the provider API', type: 'text', placeholder: 'https://api.example.com/v1' },
 				{ key: 'type_connection', label: 'Connection Type', description: 'Underlying protocol/provider', type: 'select', options: [
-					{ label: 'OpenAI Compatible', value: 'openai_compatible' },
+					{ label: 'OpenAI Compatible', value: 'openai' },
 					{ label: 'Anthropic', value: 'anthropic' },
 					{ label: 'Ollama', value: 'ollama' },
 					{ label: 'Custom', value: 'custom' },
@@ -254,12 +254,12 @@ function toCardData(raw: any, nameKey = 'name', idKey = 'id'): EntityCardData {
 	}
 
 	return {
+		...raw,
 		id,
 		name: raw[nameKey] ?? raw.title ?? raw.nome ?? raw.name ?? 'Untitled',
 		description: raw.description ?? '',
 		icon: raw.icon ?? '📄',
 		color: raw.color ?? '#3f3f46',
-		...raw,
 	};
 }
 

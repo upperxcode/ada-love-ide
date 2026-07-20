@@ -28,6 +28,8 @@
 		...restProps
 	}: ToggleGroupProps = $props();
 
+	// variant/size are stable props; the context value only needs the initial snapshot
+	// svelte-ignore state_referenced_locally
 	setContext("toggle-group", { variant, size });
 </script>
 

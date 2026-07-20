@@ -11,27 +11,37 @@
 		label?: string;
 		providerName?: string;
 		apiUrl?: string;
+		connectionType?: string;
 	}
 
-	let { value = '[]', onchange, label, providerName, apiUrl }: APIKeyManagerProps = $props();
+	let { value = '[]', onchange, label, providerName, apiUrl, connectionType = 'openai' }: APIKeyManagerProps = $props();
 
 	// Parse keys to internal state
-	let keys = $state<string[]>([]);
-	$effect(() => {
+	let keys = $derived.by(() => {
 		try {
 			if (typeof value === 'string') {
 				const parsed = JSON.parse(value || '[]');
-				keys = Array.isArray(parsed) ? parsed : [];
+				return Array.isArray(parsed) ? parsed : [];
 			} else if (Array.isArray(value)) {
-				keys = value;
+				return value;
 			}
-		} catch (e) {
-			keys = [];
+			return [];
+		} catch {
+			return [];
 		}
 	});
 
-	// Connection test state per key index
-	let testingStates = $state<Record<number, 'idle' | 'loading' | 'success' | 'error'>>({});
+	// Connection test state per key value hash (stable across add/remove)
+	let testingStates = $state<Record<string, 'idle' | 'loading' | 'success' | 'error'>>({});
+
+	function keyHash(k: string): string {
+		let h = 0;
+		for (let i = 0; i < k.length; i++) {
+			h = ((h << 5) - h) + k.charCodeAt(i);
+			h |= 0;
+		}
+		return String(h);
+	}
 
 	// New key state
 	let newKey = $state('');
@@ -39,43 +49,44 @@
 	function addKey() {
 		if (!newKey.trim()) return;
 		const updated = [...keys, newKey.trim()];
-		keys = updated;
 		onchange?.(JSON.stringify(updated));
 		newKey = '';
 	}
 
 	function removeKey(index: number) {
+		const key = keys[index];
 		const updated = keys.filter((_, i) => i !== index);
-		keys = updated;
 		onchange?.(JSON.stringify(updated));
-		const newStates = { ...testingStates };
-		delete newStates[index];
-		testingStates = newStates;
+		if (key) {
+			const newStates = { ...testingStates };
+			delete newStates[keyHash(key)];
+			testingStates = newStates;
+		}
 	}
 
 	async function testKey(index: number) {
 		const key = keys[index];
 		if (!key) return;
+		const hash = keyHash(key);
 
-		testingStates[index] = 'loading';
+		testingStates = { ...testingStates, [hash]: 'loading' };
 		try {
-			// Backend expects (name, type, url, key)
 			const result = await (window as any).go.main.App.TestProviderConnection(
 				providerName || 'custom',
-				'openai', // Fallback type
+				connectionType,
 				apiUrl || '',
 				key
 			);
 
 			if (result.success) {
-				testingStates[index] = 'success';
+				testingStates = { ...testingStates, [hash]: 'success' };
 				toastStore.success('Key Valid', 'Connection established successfully');
 			} else {
-				testingStates[index] = 'error';
+				testingStates = { ...testingStates, [hash]: 'error' };
 				toastStore.error('Key Invalid', result.message);
 			}
 		} catch (e) {
-			testingStates[index] = 'error';
+			testingStates = { ...testingStates, [hash]: 'error' };
 			toastStore.error('Test Error', String(e));
 		}
 	}
@@ -93,6 +104,7 @@
 	<!-- Add form -->
 	<div class="flex items-end gap-2">
 		<div class="flex flex-1 flex-col gap-1.5">
+			<!-- svelte-ignore a11y_label_has_associated_control -->
 			<label class="text-[9px] uppercase font-bold tracking-widest px-1" style="color: var(--text-faint)">New API Key</label>
 			<div class="relative flex items-center">
 				<input
@@ -164,20 +176,20 @@
 							<button
 								type="button"
 								onclick={() => testKey(index)}
-								disabled={testingStates[index] === 'loading'}
+								disabled={testingStates[keyHash(key)] === 'loading'}
 								class={cn(
 									"flex h-8 w-8 items-center justify-center rounded-md transition-all cursor-pointer",
-									testingStates[index] === 'success' ? "bg-green-500/10 text-green-500" :
-									testingStates[index] === 'error' ? "bg-red-500/10 text-red-500" :
+									testingStates[keyHash(key)] === 'success' ? "bg-green-500/10 text-green-500" :
+									testingStates[keyHash(key)] === 'error' ? "bg-red-500/10 text-red-500" :
 									"hover:bg-[var(--surface-hover)] text-[var(--text-faint)] hover:text-[var(--text-primary)]"
 								)}
 								title="Test this key"
 							>
-								{#if testingStates[index] === 'loading'}
+								{#if testingStates[keyHash(key)] === 'loading'}
 									<Icon name="loader" size={14} class="animate-spin" />
-								{:else if testingStates[index] === 'success'}
+								{:else if testingStates[keyHash(key)] === 'success'}
 									<Icon name="check" size={14} />
-								{:else if testingStates[index] === 'error'}
+								{:else if testingStates[keyHash(key)] === 'error'}
 									<Icon name="x" size={14} />
 								{:else}
 									<Icon name="send" size={14} />
