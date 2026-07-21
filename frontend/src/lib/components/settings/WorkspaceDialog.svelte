@@ -247,13 +247,13 @@ async function handleOpenDirectory() {
 
 			<!-- ── Form Content ── -->
 			<div class="flex-1 overflow-y-auto px-10 py-8 bg-[var(--bg-tertiary)]">
-				<div class="flex flex-col gap-6">
-<!-- Field 1: Name -->
+				<div class="flex flex-col gap-4">
+						<!-- Field 1: Name -->
 						<SettingRow label="Name" description="Display name of the workspace" required>
 							<input
 								bind:value={formData.name}
 								placeholder="Workspace name"
-								class="w-full rounded-lg px-4 py-3 text-[14px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
+								class="w-[26rem] rounded-lg px-4 py-3 text-[14px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
 							/>
 						</SettingRow>
 
@@ -262,7 +262,7 @@ async function handleOpenDirectory() {
 							<input
 								bind:value={formData.description}
 								placeholder="Brief description of the workspace..."
-								class="w-full rounded-lg px-4 py-3 text-[14px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
+								class="w-[26rem] rounded-lg px-4 py-3 text-[14px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
 							/>
 						</SettingRow>
 
@@ -271,13 +271,13 @@ async function handleOpenDirectory() {
 							<input
 								bind:value={formData.path}
 								placeholder="/path/to/workspace"
-								class="w-full rounded-lg px-4 py-3 text-[14px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)] cursor-not-allowed"
+								class="w-[26rem] rounded-lg px-4 py-3 text-[14px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)] cursor-not-allowed font-mono text-[13px]"
 								readOnly
 							/>
 						</SettingRow>
 
 					<!-- Field 4: Folders (Collapsible) -->
-					<div class="mt-4 border-t border-[var(--border-primary)] pt-6 flex flex-col gap-4">
+					<div class="mt-2 border-t border-[var(--border-primary)] pt-4 flex flex-col gap-3">
 						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 						<div
 							role="button"
@@ -361,7 +361,7 @@ async function handleOpenDirectory() {
 					</div>
 
 					<!-- Field 5: Knowledge Files (Collapsible) -->
-					<div class="border-t border-[var(--border-primary)] pt-6 flex flex-col gap-4">
+					<div class="border-t border-[var(--border-primary)] pt-4 flex flex-col gap-3">
 						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 						<div
 							role="button"
@@ -428,7 +428,7 @@ async function handleOpenDirectory() {
 					</div>
 
 					<!-- Field 6: Agents (Collapsible, toggle grid) -->
-					<div class="border-t border-[var(--border-primary)] pt-6 flex flex-col gap-4">
+					<div class="border-t border-[var(--border-primary)] pt-4 flex flex-col gap-3">
 						<button
 							type="button"
 							onclick={() => (agentsOpen = !agentsOpen)}
@@ -478,7 +478,7 @@ async function handleOpenDirectory() {
 					</div>
 
 					<!-- Field 7: Skills (Collapsible, toggle grid) -->
-					<div class="border-t border-[var(--border-primary)] pt-6 flex flex-col gap-4">
+					<div class="border-t border-[var(--border-primary)] pt-4 flex flex-col gap-3">
 						<button
 							type="button"
 							onclick={() => (skillsOpen = !skillsOpen)}
@@ -528,7 +528,7 @@ async function handleOpenDirectory() {
 					</div>
 
 					<!-- Field 8: Tools (Collapsible, toggle grid) -->
-					<div class="border-t border-[var(--border-primary)] pt-6 flex flex-col gap-4">
+					<div class="border-t border-[var(--border-primary)] pt-4 flex flex-col gap-3">
 						<button
 							type="button"
 							onclick={() => (toolsOpen = !toolsOpen)}
@@ -578,7 +578,7 @@ async function handleOpenDirectory() {
 					</div>
 
 					<!-- Field 9: Spec Wizards (Collapsible) -->
-					<div class="border-t border-[var(--border-primary)] pt-6 flex flex-col gap-4">
+					<div class="border-t border-[var(--border-primary)] pt-4 flex flex-col gap-3">
 						<button
 							type="button"
 							onclick={() => (specWizardsOpen = !specWizardsOpen)}
