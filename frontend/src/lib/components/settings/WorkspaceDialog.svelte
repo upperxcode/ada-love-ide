@@ -292,9 +292,12 @@ async function handleOpenFile() {
 
 					<!-- Field 4: Folders (Collapsible) -->
 					<div class="mt-4 border-t border-[var(--border-primary)] pt-6 flex flex-col gap-4">
-						<button
-							type="button"
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<div
+							role="button"
+							tabindex="0"
 							onclick={() => (foldersOpen = !foldersOpen)}
+							onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); foldersOpen = !foldersOpen; } }}
 							class="flex w-full items-center justify-between rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-primary)] p-4 transition-colors cursor-pointer hover:bg-[var(--surface-hover)]"
 						>
 							<div class="flex items-center gap-3">
@@ -303,33 +306,29 @@ async function handleOpenFile() {
 								</div>
 								<div class="flex flex-col">
 									<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Folders</h3>
-									<span class="text-[10px] text-[var(--text-faint)]">Directories in this workspace</span>
+									<span class="text-[10px] text-[var(--text-faint)]">{formData.folders?.length ?? 0} folder{(formData.folders?.length ?? 0) === 1 ? '' : 's'}</span>
 								</div>
 							</div>
-							<Icon
-								name="chevron-down"
-								size={16}
-								class={cn('transition-transform duration-300', foldersOpen && 'rotate-180')}
-								color="var(--text-faint)"
-							/>
-						</button>
+							<div class="flex items-center gap-2">
+								<!-- Browse button inline in header -->
+								<button
+									type="button"
+									onclick={(e) => { e.stopPropagation(); handleOpenDirectory(); }}
+									class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.15em] transition-all cursor-pointer bg-[var(--accent-primary)] text-white shadow hover:brightness-110 active:scale-95"
+								>
+									<Icon name="folder-plus" size={12} /> Browse
+								</button>
+								<Icon
+									name="chevron-down"
+									size={16}
+									class={cn('transition-transform duration-300', foldersOpen && 'rotate-180')}
+									color="var(--text-faint)"
+								/>
+							</div>
+						</div>
 
 						{#if foldersOpen}
-							<div class="flex flex-col gap-3">
-								<!-- Toolbar: Browse button only -->
-								<div class="flex items-center justify-between gap-2">
-									<span class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">
-										{formData.folders?.length ?? 0} folder{(formData.folders?.length ?? 0) === 1 ? '' : 's'}
-									</span>
-									<button
-										type="button"
-										onclick={handleOpenDirectory}
-										class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.15em] transition-all cursor-pointer bg-[var(--accent-primary)] text-white shadow-lg hover:brightness-110 active:scale-95"
-									>
-										<Icon name="folder-plus" size={12} /> Browse
-									</button>
-								</div>
-
+							<div class="flex flex-col gap-2 pt-1">
 								{#if formData.folders && formData.folders.length > 0}
 									<div class="flex flex-col gap-1.5">
 										{#each formData.folders as folder, i (folder)}
