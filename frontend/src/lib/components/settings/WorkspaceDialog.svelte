@@ -78,10 +78,20 @@
 		await loadCandidates();
 
 		if (entity) {
-			formData = { ...entity };
-			// Derive path from folders[0] if available
-			if (entity.folders && entity.folders.length > 0) {
-				formData.path = entity.folders[0];
+			// Normalize: backend uses 'knowledge', UI uses 'knowledge_files'
+			const knowledgeFiles = entity.knowledge_files ?? entity.knowledge ?? [];
+			formData = {
+				...entity,
+				folders: entity.folders ?? [],
+				knowledge_files: Array.isArray(knowledgeFiles) ? knowledgeFiles : [],
+				agents: entity.agents ?? [],
+				skills: entity.skills ?? [],
+				tools: entity.tools ?? [],
+				spec_wizards: entity.spec_wizards ?? [],
+			};
+			// Derive path from folders[0] if not already set
+			if ((!formData.path || formData.path === '') && formData.folders.length > 0) {
+				formData.path = formData.folders[0];
 			}
 		} else {
 			formData = {
@@ -199,9 +209,10 @@ async function handleOpenDirectory() {
 			try {
 				const result = await (window as any).go.main.App.OpenDirectoryDialog();
 				if (result) {
+					const list: string[] = formData.folders ?? [];
 					// Avoid duplicates
-					if (formData.folders.includes(result)) return;
-					formData.folders = [...formData.folders, result];
+					if (list.includes(result)) return;
+					formData.folders = [...list, result];
 					// Becomes primary only if none is set yet
 					if (!formData.path) {
 						formData.path = result;
@@ -212,13 +223,14 @@ async function handleOpenDirectory() {
 			}
 		}
 
-async function handleOpenFile() {
+	async function handleOpenFile() {
 			try {
 				const result = await (window as any).go.main.App.OpenFileDialog();
 				if (result) {
+					const list: string[] = formData.knowledge_files ?? [];
 					// Avoid duplicates
-					if (formData.knowledge_files.includes(result)) return;
-					formData.knowledge_files = [...formData.knowledge_files, result];
+					if (list.includes(result)) return;
+					formData.knowledge_files = [...list, result];
 				}
 			} catch (e) {
 				console.error('Failed to open file dialog:', e);
@@ -228,11 +240,18 @@ async function handleOpenFile() {
 	function handleSave() {
 		// Force enabled = true
 		formData.enabled = true;
-		// Ensure path is derived from folders[0]
+		// Ensure path is set: keep selected primary, fallback to first folder
 		if (formData.folders && formData.folders.length > 0) {
-			formData.path = formData.folders[0];
+			if (!formData.path || !formData.folders.includes(formData.path)) {
+				formData.path = formData.folders[0];
+			}
+		} else {
+			formData.path = '';
 		}
-		onSave(formData);
+		// Map UI field name back to backend field name
+		const payload = { ...formData, knowledge: formData.knowledge_files ?? [] };
+		delete payload.knowledge_files;
+		onSave(payload);
 		onOpenChange(false);
 	}
 </script>
