@@ -290,13 +290,14 @@ async function handleOpenDirectory() {
 
 						<!-- Field 4: Spec Wizard (single select) -->
 						<SettingRow label="Spec Wizard" description="Associated Spec Wizard (single)">
-							<ThemedSelect
-								value={formData.spec_wizard_id ?? ''}
-								onValueChange={(v: string) => (formData.spec_wizard_id = v)}
-								options={specWizards.map((w: any) => ({ value: w.id, label: w.name || w.id }))}
-								placeholder="Select a Spec Wizard"
-								class="w-[26rem]"
-							/>
+							<div class="w-[26rem]">
+								<ThemedSelect
+									value={formData.spec_wizard_id ?? ''}
+									onValueChange={(v: string) => (formData.spec_wizard_id = v)}
+									options={specWizards.map((w: any) => ({ value: w.id, label: w.name || w.id }))}
+									placeholder="Select a Spec Wizard"
+								/>
+							</div>
 						</SettingRow>
 
 					<!-- Field 5: Folders (Collapsible) -->
