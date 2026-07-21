@@ -47,6 +47,7 @@
 
 	// ── Option catalogs from backend ──
 	let agents = $state<any[]>([]);
+	let workers = $state<any[]>([]);
 	let skills = $state<any[]>([]);
 	let tools = $state<any[]>([]);
 	let specWizards = $state<any[]>([]);
@@ -54,6 +55,7 @@
 	// ── Collapsible state ──
 	let foldersOpen = $state(false);
 	let knowledgeFilesOpen = $state(false);
+	let workersOpen = $state(false);
 		let agentsOpen = $state(false);
 		let skillsOpen = $state(false);
 		let toolsOpen = $state(false);
@@ -83,11 +85,18 @@
 				...entity,
 				folders: entity.folders ?? [],
 				knowledge_files: Array.isArray(knowledgeFiles) ? knowledgeFiles : [],
+				worker_names: entity.worker_names ?? [],
 				agents: entity.agents ?? [],
 				skills: entity.skills ?? [],
 				tools: entity.tools ?? [],
 				spec_wizard_id: entity.spec_wizard_id ?? '',
 			};
+			// Auto-expand workers section if flagged from sidebar "+" button
+			if (entity._focusWorkers) {
+				workersOpen = true;
+			}
+			// Remove internal flags before save
+			delete formData._focusWorkers;
 			// Derive path from folders[0] if not already set
 			if ((!formData.path || formData.path === '') && formData.folders.length > 0) {
 				formData.path = formData.folders[0];
@@ -99,6 +108,7 @@
 				path: '',
 				folders: [],
 				knowledge_files: [],
+				worker_names: [],
 				agents: [],
 				skills: [],
 				tools: [],
@@ -115,6 +125,12 @@
 			agents = await (window as any).go.main.App.GetAgents();
 		} catch (e) {
 			console.error('Failed to load agents:', e);
+		}
+
+		try {
+			workers = await (window as any).go.main.App.GetWorkers();
+		} catch (e) {
+			console.error('Failed to load workers:', e);
 		}
 
 		try {
@@ -326,7 +342,7 @@ async function handleOpenDirectory() {
 							<div class="flex flex-col gap-2 pt-1">
 								{#if formData.folders && formData.folders.length > 0}
 									<div class="flex flex-col gap-1.5">
-										{#each formData.folders as folder, i (folder)}
+										{#each formData.folders as folder, i (folder + '-' + i)}
 											{@const isPrimary = formData.path === folder}
 											<div
 												class="flex items-center gap-2.5 rounded-lg bg-[var(--surface-input)] border px-3 py-2 transition-colors {isPrimary ? 'border-[var(--accent-primary)]/50' : 'border-[var(--border-primary)]'}"
@@ -410,7 +426,7 @@ async function handleOpenDirectory() {
 							<div class="flex flex-col gap-2 pt-1">
 								{#if formData.knowledge_files && formData.knowledge_files.length > 0}
 									<div class="flex flex-col gap-1.5">
-										{#each formData.knowledge_files as file, i (file)}
+										{#each formData.knowledge_files as file, i (file + '-' + i)}
 											<div class="flex items-center gap-2.5 rounded-lg bg-[var(--surface-input)] border border-[var(--border-primary)] px-3 py-2 transition-colors">
 												<span class="flex-1 text-[12px] font-mono text-[var(--text-primary)] truncate" title={file}>{file}</span>
 												<button
@@ -434,7 +450,58 @@ async function handleOpenDirectory() {
 						{/if}
 					</div>
 
-					<!-- Field 6: Agents (Collapsible, toggle grid) -->
+					<!-- Field 6: Workers (Collapsible, toggle grid) -->
+					<div class="border-t border-[var(--border-primary)] pt-4 flex flex-col gap-3">
+						<button
+							type="button"
+							onclick={() => (workersOpen = !workersOpen)}
+							class="flex w-full items-center justify-between rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-primary)] p-4 transition-colors cursor-pointer hover:bg-[var(--surface-hover)]"
+						>
+							<div class="flex items-center gap-3">
+								<div class="w-8 h-8 rounded-lg bg-pink-500/10 flex items-center justify-center text-pink-500">
+									<Icon name="users" size={14} />
+								</div>
+								<div class="flex flex-col">
+									<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Workers</h3>
+									<span class="text-[10px] text-[var(--text-faint)]">{(formData.worker_names ?? []).length} of {workers.length} selected</span>
+								</div>
+							</div>
+							<Icon
+								name="chevron-down"
+								size={16}
+								class={cn('transition-transform duration-300', workersOpen && 'rotate-180')}
+								color="var(--text-faint)"
+							/>
+						</button>
+
+						{#if workersOpen}
+							<div class="pt-1">
+								{#if workers.length > 0}
+									<div class="grid grid-cols-6 gap-2">
+										{#each workers as wkr, wi (wkr.name + '-' + wi)}
+											{@const selected = (formData.worker_names ?? []).includes(wkr.name)}
+											<button
+												type="button"
+												onclick={() => toggleInList('worker_names', wkr.name)}
+												title={wkr.persona || ''}
+												class="flex flex-col items-start gap-0.5 p-2.5 rounded-lg border text-left transition-all cursor-pointer min-w-0 {selected ? 'bg-[var(--accent-primary)]/15 border-[var(--accent-primary)] shadow-sm' : 'bg-[var(--surface-input)] border-[var(--border-primary)] hover:border-[var(--accent-primary)]/50'}"
+											>
+												<span class="text-[11px] font-bold truncate w-full" style={selected ? 'color: var(--accent-primary)' : 'color: var(--text-primary)'}>{wkr.name}</span>
+												<span class="text-[9px] leading-tight line-clamp-2 w-full" style="color: var(--text-faint)">{wkr.description || wkr.persona?.slice(0, 60) || '—'}</span>
+											</button>
+										{/each}
+									</div>
+								{:else}
+									<div class="py-6 text-center border-2 border-dashed border-[var(--border-primary)] rounded-xl opacity-50">
+										<p class="text-xs uppercase font-bold tracking-widest text-[var(--text-muted)]">No workers available</p>
+										<p class="text-[10px] text-[var(--text-faint)] mt-1">Crie workers em Settings > Workers</p>
+									</div>
+								{/if}
+							</div>
+						{/if}
+					</div>
+
+				<!-- Field 7: Agents (Collapsible, toggle grid) -->
 					<div class="border-t border-[var(--border-primary)] pt-4 flex flex-col gap-3">
 						<button
 							type="button"
@@ -462,7 +529,7 @@ async function handleOpenDirectory() {
 							<div class="pt-1">
 								{#if agents.length > 0}
 									<div class="grid grid-cols-6 gap-2">
-										{#each agents as agent (agent.name)}
+										{#each agents as agent, ai (agent.name + '-' + ai)}
 											{@const selected = (formData.agents ?? []).includes(agent.name)}
 											<button
 												type="button"
@@ -512,7 +579,7 @@ async function handleOpenDirectory() {
 							<div class="pt-1">
 								{#if skills.length > 0}
 									<div class="grid grid-cols-6 gap-2">
-										{#each skills as skill (skill.name)}
+										{#each skills as skill, si (skill.name + '-' + si)}
 											{@const selected = (formData.skills ?? []).includes(skill.name)}
 											<button
 												type="button"
@@ -562,7 +629,7 @@ async function handleOpenDirectory() {
 							<div class="pt-1">
 								{#if tools.length > 0}
 									<div class="grid grid-cols-6 gap-2">
-										{#each tools as t (t.Name)}
+										{#each tools as t, ti (t.Name + '-' + ti)}
 											{@const selected = (formData.tools ?? []).includes(t.Name)}
 											<button
 												type="button"
