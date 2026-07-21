@@ -263,7 +263,18 @@ async function handleOpenDirectory() {
 							/>
 						</SettingRow>
 
-					<!-- Field 4: Folders (Collapsible) -->
+						<!-- Field 4: Spec Wizard (single select) -->
+						<SettingRow label="Spec Wizard" description="Associated Spec Wizard (single)">
+							<ThemedSelect
+								value={formData.spec_wizard_id ?? ''}
+								onValueChange={(v: string) => (formData.spec_wizard_id = v)}
+								options={specWizards.map((w: any) => ({ value: w.id, label: w.name || w.id }))}
+								placeholder="Select a Spec Wizard"
+								class="w-[26rem]"
+							/>
+						</SettingRow>
+
+					<!-- Field 5: Folders (Collapsible) -->
 					<div class="mt-2 border-t border-[var(--border-primary)] pt-4 flex flex-col gap-3">
 						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 						<div
@@ -562,19 +573,6 @@ async function handleOpenDirectory() {
 								{/if}
 							</div>
 						{/if}
-					</div>
-
-					<!-- Field 9: Spec Wizard (single select) -->
-					<div class="border-t border-[var(--border-primary)] pt-4 flex flex-col gap-3">
-						<SettingRow label="Spec Wizard" description="Associated Spec Wizard (single)">
-							<ThemedSelect
-								value={formData.spec_wizard_id ?? ''}
-								onValueChange={(v: string) => (formData.spec_wizard_id = v)}
-								options={specWizards.map((w: any) => ({ value: w.id, label: w.name || w.id }))}
-								placeholder="Select a Spec Wizard"
-								class="w-[26rem]"
-							/>
-						</SettingRow>
 					</div>
 
 					<!-- Field 10: Enabled (always true, hidden) -->
