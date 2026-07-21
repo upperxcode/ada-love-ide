@@ -59,8 +59,7 @@
 	let toolsOpen = $state(false);
 	let specWizardsOpen = $state(false);
 
-	// ── New item state for knowledge files ──
-	let newKnowledgeFile = $state('');
+	// ── New item state (removed: knowledge files only via Browse) ──
 
 	// ── Initialize when opening ──
 	let isInitialized = $state(false);
@@ -144,12 +143,6 @@
 			formData.path = formData.folders[index];
 		}
 
-	function addKnowledgeFile() {
-		if (!newKnowledgeFile.trim()) return;
-		formData.knowledge_files = [...formData.knowledge_files, newKnowledgeFile.trim()];
-		newKnowledgeFile = '';
-	}
-
 	function removeKnowledgeFile(index: number) {
 		formData.knowledge_files = formData.knowledge_files.filter((_: unknown, idx: number) => idx !== index);
 	}
@@ -223,6 +216,8 @@ async function handleOpenFile() {
 			try {
 				const result = await (window as any).go.main.App.OpenFileDialog();
 				if (result) {
+					// Avoid duplicates
+					if (formData.knowledge_files.includes(result)) return;
 					formData.knowledge_files = [...formData.knowledge_files, result];
 				}
 			} catch (e) {
@@ -376,36 +371,55 @@ async function handleOpenFile() {
 
 					<!-- Field 5: Knowledge Files (Collapsible) -->
 					<div class="border-t border-[var(--border-primary)] pt-6 flex flex-col gap-4">
-						<button
-							type="button"
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<div
+							role="button"
+							tabindex="0"
 							onclick={() => (knowledgeFilesOpen = !knowledgeFilesOpen)}
+							onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); knowledgeFilesOpen = !knowledgeFilesOpen; } }}
 							class="flex w-full items-center justify-between rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-primary)] p-4 transition-colors cursor-pointer hover:bg-[var(--surface-hover)]"
 						>
 							<div class="flex items-center gap-3">
 								<div class="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center text-green-500">
 									<Icon name="book" size={14} />
 								</div>
-								<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Knowledge Files</h3>
+								<div class="flex flex-col">
+									<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Knowledge Files</h3>
+									<span class="text-[10px] text-[var(--text-faint)]">{formData.knowledge_files?.length ?? 0} file{(formData.knowledge_files?.length ?? 0) === 1 ? '' : 's'}</span>
+								</div>
 							</div>
-							<Icon
-								name="chevron-down"
-								size={16}
-								class={cn('transition-transform duration-300', knowledgeFilesOpen && 'rotate-180')}
-								color="var(--text-faint)"
-							/>
-						</button>
+							<div class="flex items-center gap-2">
+								{#if knowledgeFilesOpen}
+									<!-- Browse button inline in header (only when expanded) -->
+									<button
+										type="button"
+										onclick={(e) => { e.stopPropagation(); handleOpenFile(); }}
+										class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.15em] transition-all cursor-pointer bg-[var(--accent-primary)] text-white shadow hover:brightness-110 active:scale-95"
+									>
+										<Icon name="file-plus" size={12} /> Browse
+									</button>
+								{/if}
+								<Icon
+									name="chevron-down"
+									size={16}
+									class={cn('transition-transform duration-300', knowledgeFilesOpen && 'rotate-180')}
+									color="var(--text-faint)"
+								/>
+							</div>
+						</div>
 
 						{#if knowledgeFilesOpen}
-							<div class="flex flex-col gap-3">
+							<div class="flex flex-col gap-2 pt-1">
 								{#if formData.knowledge_files && formData.knowledge_files.length > 0}
-									<div class="flex flex-col gap-2">
-										{#each formData.knowledge_files as file, i}
-											<div class="flex items-center gap-2 rounded-lg bg-[var(--surface-input)] border border-[var(--border-primary)] px-3 py-2">
-												<span class="flex-1 text-sm font-mono text-[var(--text-primary)] truncate">{file}</span>
+									<div class="flex flex-col gap-1.5">
+										{#each formData.knowledge_files as file, i (file)}
+											<div class="flex items-center gap-2.5 rounded-lg bg-[var(--surface-input)] border border-[var(--border-primary)] px-3 py-2 transition-colors">
+												<span class="flex-1 text-[12px] font-mono text-[var(--text-primary)] truncate" title={file}>{file}</span>
 												<button
 													type="button"
 													onclick={() => removeKnowledgeFile(i)}
-													class="text-[var(--text-faint)] hover:text-red-500 p-1 transition-colors cursor-pointer"
+													class="text-[var(--text-faint)] hover:text-red-500 p-1 transition-colors cursor-pointer shrink-0"
+													title="Remove file"
 												>
 													<Icon name="x" size={14} />
 												</button>
@@ -413,34 +427,11 @@ async function handleOpenFile() {
 										{/each}
 									</div>
 								{:else}
-									<div class="py-6 text-center border-2 border-dashed border-[var(--border-primary)] rounded-xl opacity-40">
-										<p class="text-xs uppercase font-bold tracking-widest">No knowledge files selected</p>
+									<div class="py-6 text-center border-2 border-dashed border-[var(--border-primary)] rounded-xl opacity-50">
+										<p class="text-xs uppercase font-bold tracking-widest text-[var(--text-muted)]">No knowledge files selected</p>
+										<p class="text-[10px] text-[var(--text-faint)] mt-1">Click Browse to add files</p>
 									</div>
 								{/if}
-
-								<div class="flex items-center gap-2">
-									<input
-										type="text"
-										bind:value={newKnowledgeFile}
-										placeholder="Knowledge file path"
-										class="flex-1 rounded-lg px-3 py-2 text-sm border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]/30"
-									/>
-									<button
-										type="button"
-										disabled={!newKnowledgeFile.trim()}
-										onclick={addKnowledgeFile}
-										class="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-[0.2em] transition-all cursor-pointer disabled:opacity-30 {newKnowledgeFile.trim() ? 'bg-[var(--accent-primary)] text-white shadow-lg hover:brightness-110 active:scale-90' : 'bg-[var(--surface-input)] border border-[var(--border-primary)] text-[var(--text-muted)]'}"
-									>
-										<Icon name="plus" size={12} /> Add
-									</button>
-									<button
-										type="button"
-										onclick={handleOpenFile}
-										class="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-[0.2em] transition-all cursor-pointer bg-[var(--surface-input)] border border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-									>
-										<Icon name="file-plus" size={12} /> Browse
-									</button>
-								</div>
 							</div>
 						{/if}
 					</div>
