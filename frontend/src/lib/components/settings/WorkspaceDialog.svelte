@@ -207,8 +207,17 @@ async function handleOpenDirectory() {
 		} else {
 			formData.path = '';
 		}
+		// Normalize id: frontend may use a synthetic string ID (toCardData),
+		// backend expects an int (0 means "create new").
+		let idNum = 0;
+		if (typeof formData.id === 'number') {
+			idNum = formData.id;
+		} else if (typeof formData.id === 'string') {
+			const parsed = parseInt(formData.id, 10);
+			idNum = isNaN(parsed) ? 0 : parsed;
+		}
 		// Map UI field name back to backend field name
-		const payload = { ...formData, knowledge: formData.knowledge_files ?? [] };
+		const payload = { ...formData, id: idNum, knowledge: formData.knowledge_files ?? [] };
 		delete payload.knowledge_files;
 		onSave(payload);
 		onOpenChange(false);
