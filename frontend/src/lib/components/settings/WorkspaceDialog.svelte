@@ -310,14 +310,16 @@ async function handleOpenFile() {
 								</div>
 							</div>
 							<div class="flex items-center gap-2">
-								<!-- Browse button inline in header -->
-								<button
-									type="button"
-									onclick={(e) => { e.stopPropagation(); handleOpenDirectory(); }}
-									class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.15em] transition-all cursor-pointer bg-[var(--accent-primary)] text-white shadow hover:brightness-110 active:scale-95"
-								>
-									<Icon name="folder-plus" size={12} /> Browse
-								</button>
+								{#if foldersOpen}
+									<!-- Browse button inline in header (only when expanded) -->
+									<button
+										type="button"
+										onclick={(e) => { e.stopPropagation(); handleOpenDirectory(); }}
+										class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.15em] transition-all cursor-pointer bg-[var(--accent-primary)] text-white shadow hover:brightness-110 active:scale-95"
+									>
+										<Icon name="folder-plus" size={12} /> Browse
+									</button>
+								{/if}
 								<Icon
 									name="chevron-down"
 									size={16}
