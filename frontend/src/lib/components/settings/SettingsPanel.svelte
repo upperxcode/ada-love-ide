@@ -5,6 +5,7 @@
 	import CardList from './CardList.svelte';
 	import EntityEditDialog from './EntityEditDialog.svelte';
 	import SpecWizardDialog from './SpecWizardDialog.svelte';
+import WorkspaceDialog from './WorkspaceDialog.svelte';
 	import GeneralSettings from './GeneralSettings.svelte';
 	import ConfirmDeleteDialog from '$lib/components/ui/ConfirmDeleteDialog.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -195,25 +196,32 @@
 				onConfirm={handleDelete}
 			/>
 
-				<!-- ── Edit/Create Dialog ── -->
-			{#if activeCategory !== 'general' && FIELD_CONFIGS[activeCategory]}
-				{#if activeCategory === 'spec-wizard'}
-					<SpecWizardDialog
-						bind:open={dialogOpen}
-						onOpenChange={(val) => (dialogOpen = val)}
-						entity={dialogEntity}
-						onSave={handleSave}
-					/>
-				{:else}
-					<EntityEditDialog
-						bind:open={dialogOpen}
-						onOpenChange={(val) => (dialogOpen = val)}
-						entity={dialogEntity}
-						entityType={categories.find((c) => c.id === activeCategory)?.label ?? 'item'}
-						fields={FIELD_CONFIGS[activeCategory]}
-						onSave={handleSave}
-					/>
+<!-- ── Edit/Create Dialog ── -->
+				{#if activeCategory !== 'general'}
+					{#if activeCategory === 'spec-wizard'}
+						<SpecWizardDialog
+							bind:open={dialogOpen}
+							onOpenChange={(val) => (dialogOpen = val)}
+							entity={dialogEntity}
+							onSave={handleSave}
+						/>
+					{:else if activeCategory === 'workspaces'}
+						<WorkspaceDialog
+							bind:open={dialogOpen}
+							onOpenChange={(val) => (dialogOpen = val)}
+							entity={dialogEntity}
+							onSave={handleSave}
+						/>
+					{:else if FIELD_CONFIGS[activeCategory]}
+						<EntityEditDialog
+							bind:open={dialogOpen}
+							onOpenChange={(val) => (dialogOpen = val)}
+							entity={dialogEntity}
+							entityType={categories.find((c) => c.id === activeCategory)?.label ?? 'item'}
+							fields={FIELD_CONFIGS[activeCategory]}
+							onSave={handleSave}
+						/>
+					{/if}
 				{/if}
-			{/if}
 	</aside>
 </TooltipProvider>
