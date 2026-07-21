@@ -234,7 +234,7 @@ async function handleOpenDirectory() {
 
 			<!-- ── Form Content ── -->
 			<div class="flex-1 overflow-y-auto px-10 py-8 bg-[var(--bg-tertiary)]">
-				<div class="flex flex-col gap-4">
+				<div class="flex flex-col gap-2">
 						<!-- Field 1: Name -->
 						<SettingRow label="Name" description="Display name of the workspace" required>
 							<input
