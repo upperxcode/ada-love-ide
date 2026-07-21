@@ -157,40 +157,12 @@
 		formData.knowledge_files = formData.knowledge_files.filter((_: unknown, idx: number) => idx !== index);
 	}
 
-	function addAgent() {
-		const selectedAgent = agents.find(a => a.id === formData.agents.find((id: string) => id === a.id));
-		if (!selectedAgent) return;
-		if (!formData.agents.includes(selectedAgent.id)) {
-			formData.agents = [...formData.agents, selectedAgent.id];
-		}
-	}
-
-	function removeAgent(index: number) {
-		formData.agents = formData.agents.filter((_: unknown, idx: number) => idx !== index);
-	}
-
-	function addSkill() {
-		const selectedSkill = skills.find(s => s.id === formData.skills.find((id: string) => id === s.id));
-		if (!selectedSkill) return;
-		if (!formData.skills.includes(selectedSkill.id)) {
-			formData.skills = [...formData.skills, selectedSkill.id];
-		}
-	}
-
-	function removeSkill(index: number) {
-		formData.skills = formData.skills.filter((_: unknown, idx: number) => idx !== index);
-	}
-
-	function addTool() {
-		const selectedTool = tools.find(t => t.id === formData.tools.find((id: string) => id === t.id));
-		if (!selectedTool) return;
-		if (!formData.tools.includes(selectedTool.id)) {
-			formData.tools = [...formData.tools, selectedTool.id];
-		}
-	}
-
-	function removeTool(index: number) {
-		formData.tools = formData.tools.filter((_: unknown, idx: number) => idx !== index);
+	// Toggle a value in a list field (agents/skills/tools by name)
+	function toggleInList(key: 'agents' | 'skills' | 'tools', value: string) {
+		const list: string[] = formData[key] ?? [];
+		formData[key] = list.includes(value)
+			? list.filter((v) => v !== value)
+			: [...list, value];
 	}
 
 	function addSpecWizard() {
@@ -455,7 +427,7 @@ async function handleOpenDirectory() {
 						{/if}
 					</div>
 
-					<!-- Field 6: Agents (Collapsible) -->
+					<!-- Field 6: Agents (Collapsible, toggle grid) -->
 					<div class="border-t border-[var(--border-primary)] pt-6 flex flex-col gap-4">
 						<button
 							type="button"
@@ -466,7 +438,10 @@ async function handleOpenDirectory() {
 								<div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500">
 									<Icon name="robot" size={14} />
 								</div>
-								<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Agents</h3>
+								<div class="flex flex-col">
+									<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Agents</h3>
+									<span class="text-[10px] text-[var(--text-faint)]">{(formData.agents ?? []).length} of {agents.length} selected</span>
+								</div>
 							</div>
 							<Icon
 								name="chevron-down"
@@ -477,55 +452,32 @@ async function handleOpenDirectory() {
 						</button>
 
 						{#if agentsOpen}
-							<div class="flex flex-col gap-3">
-								{#if formData.agents && formData.agents.length > 0}
-									<div class="flex flex-col gap-2">
-										{#each formData.agents as agentId, i}
-											{@const agent = agents.find(a => a.id === agentId)}
-											{#if agent}
-												<div class="flex items-center gap-2 rounded-lg bg-[var(--surface-input)] border border-[var(--border-primary)] px-3 py-2">
-													<span class="flex-1 text-sm text-[var(--text-primary)]">{agent.name || agent.id}</span>
-													<button
-														type="button"
-														onclick={() => removeAgent(i)}
-														class="text-[var(--text-faint)] hover:text-red-500 p-1 transition-colors cursor-pointer"
-													>
-														<Icon name="x" size={14} />
-													</button>
-												</div>
-											{/if}
+							<div class="pt-1">
+								{#if agents.length > 0}
+									<div class="grid grid-cols-6 gap-2">
+										{#each agents as agent (agent.name)}
+											{@const selected = (formData.agents ?? []).includes(agent.name)}
+											<button
+												type="button"
+												onclick={() => toggleInList('agents', agent.name)}
+												title={agent.description || ''}
+												class="flex flex-col items-start gap-0.5 p-2.5 rounded-lg border text-left transition-all cursor-pointer min-w-0 {selected ? 'bg-[var(--accent-primary)]/15 border-[var(--accent-primary)] shadow-sm' : 'bg-[var(--surface-input)] border-[var(--border-primary)] hover:border-[var(--accent-primary)]/50'}"
+											>
+												<span class="text-[11px] font-bold truncate w-full" style={selected ? 'color: var(--accent-primary)' : 'color: var(--text-primary)'}>{agent.name}</span>
+												<span class="text-[9px] leading-tight line-clamp-2 w-full" style="color: var(--text-faint)">{agent.description || '—'}</span>
+											</button>
 										{/each}
 									</div>
 								{:else}
-									<div class="py-6 text-center border-2 border-dashed border-[var(--border-primary)] rounded-xl opacity-40">
-										<p class="text-xs uppercase font-bold tracking-widest">No agents selected</p>
+									<div class="py-6 text-center border-2 border-dashed border-[var(--border-primary)] rounded-xl opacity-50">
+										<p class="text-xs uppercase font-bold tracking-widest text-[var(--text-muted)]">No agents available</p>
 									</div>
 								{/if}
-
-								<div class="flex items-center gap-2">
-									<select
-										bind:value={formData.agents}
-										class="flex-1 rounded-lg px-3 py-2 text-sm border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]/30"
-									>
-										<option value="">-- Select Agent --</option>
-										{#each agents as agent}
-											<option value={agent.id}>{agent.name || agent.id}</option>
-										{/each}
-									</select>
-									<button
-										type="button"
-										disabled={!formData.agents.includes(agents[0]?.id)}
-										onclick={addAgent}
-										class="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-[0.2em] transition-all cursor-pointer disabled:opacity-30 {formData.agents.length > 0 ? 'bg-[var(--accent-primary)] text-white shadow-lg hover:brightness-110 active:scale-90' : 'bg-[var(--surface-input)] border border-[var(--border-primary)] text-[var(--text-muted)]'}"
-									>
-										<Icon name="plus" size={12} /> Add
-									</button>
-								</div>
 							</div>
 						{/if}
 					</div>
 
-					<!-- Field 7: Skills (Collapsible) -->
+					<!-- Field 7: Skills (Collapsible, toggle grid) -->
 					<div class="border-t border-[var(--border-primary)] pt-6 flex flex-col gap-4">
 						<button
 							type="button"
@@ -536,7 +488,10 @@ async function handleOpenDirectory() {
 								<div class="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">
 									<Icon name="code" size={14} />
 								</div>
-								<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Skills</h3>
+								<div class="flex flex-col">
+									<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Skills</h3>
+									<span class="text-[10px] text-[var(--text-faint)]">{(formData.skills ?? []).length} of {skills.length} selected</span>
+								</div>
 							</div>
 							<Icon
 								name="chevron-down"
@@ -547,55 +502,32 @@ async function handleOpenDirectory() {
 						</button>
 
 						{#if skillsOpen}
-							<div class="flex flex-col gap-3">
-								{#if formData.skills && formData.skills.length > 0}
-									<div class="flex flex-col gap-2">
-										{#each formData.skills as skillId, i}
-											{@const skill = skills.find(s => s.id === skillId)}
-											{#if skill}
-												<div class="flex items-center gap-2 rounded-lg bg-[var(--surface-input)] border border-[var(--border-primary)] px-3 py-2">
-													<span class="flex-1 text-sm text-[var(--text-primary)]">{skill.name || skillId}</span>
-													<button
-														type="button"
-														onclick={() => removeSkill(i)}
-														class="text-[var(--text-faint)] hover:text-red-500 p-1 transition-colors cursor-pointer"
-													>
-														<Icon name="x" size={14} />
-													</button>
-												</div>
-											{/if}
+							<div class="pt-1">
+								{#if skills.length > 0}
+									<div class="grid grid-cols-6 gap-2">
+										{#each skills as skill (skill.name)}
+											{@const selected = (formData.skills ?? []).includes(skill.name)}
+											<button
+												type="button"
+												onclick={() => toggleInList('skills', skill.name)}
+												title={skill.description || ''}
+												class="flex flex-col items-start gap-0.5 p-2.5 rounded-lg border text-left transition-all cursor-pointer min-w-0 {selected ? 'bg-[var(--accent-primary)]/15 border-[var(--accent-primary)] shadow-sm' : 'bg-[var(--surface-input)] border border-[var(--border-primary)] hover:border-[var(--accent-primary)]/50'}"
+											>
+												<span class="text-[11px] font-bold truncate w-full" style={selected ? 'color: var(--accent-primary)' : 'color: var(--text-primary)'}>{skill.name}</span>
+												<span class="text-[9px] leading-tight line-clamp-2 w-full" style="color: var(--text-faint)">{skill.description || '—'}</span>
+											</button>
 										{/each}
 									</div>
 								{:else}
-									<div class="py-6 text-center border-2 border-dashed border-[var(--border-primary)] rounded-xl opacity-40">
-										<p class="text-xs uppercase font-bold tracking-widest">No skills selected</p>
+									<div class="py-6 text-center border-2 border-dashed border-[var(--border-primary)] rounded-xl opacity-50">
+										<p class="text-xs uppercase font-bold tracking-widest text-[var(--text-muted)]">No skills available</p>
 									</div>
 								{/if}
-
-								<div class="flex items-center gap-2">
-									<select
-										bind:value={formData.skills}
-										class="flex-1 rounded-lg px-3 py-2 text-sm border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]/30"
-									>
-										<option value="">-- Select Skill --</option>
-										{#each skills as skill}
-											<option value={skill.id}>{skill.name || skill.id}</option>
-										{/each}
-									</select>
-									<button
-										type="button"
-										disabled={!formData.skills.includes(skills[0]?.id)}
-										onclick={addSkill}
-										class="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-[0.2em] transition-all cursor-pointer disabled:opacity-30 {formData.skills.length > 0 ? 'bg-[var(--accent-primary)] text-white shadow-lg hover:brightness-110 active:scale-90' : 'bg-[var(--surface-input)] border border-[var(--border-primary)] text-[var(--text-muted)]'}"
-									>
-										<Icon name="plus" size={12} /> Add
-									</button>
-								</div>
 							</div>
 						{/if}
 					</div>
 
-					<!-- Field 8: Tools (Collapsible) -->
+					<!-- Field 8: Tools (Collapsible, toggle grid) -->
 					<div class="border-t border-[var(--border-primary)] pt-6 flex flex-col gap-4">
 						<button
 							type="button"
@@ -606,7 +538,10 @@ async function handleOpenDirectory() {
 								<div class="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
 									<Icon name="tool" size={14} />
 								</div>
-								<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Tools</h3>
+								<div class="flex flex-col">
+									<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Tools</h3>
+									<span class="text-[10px] text-[var(--text-faint)]">{(formData.tools ?? []).length} of {tools.length} selected</span>
+								</div>
 							</div>
 							<Icon
 								name="chevron-down"
@@ -617,50 +552,27 @@ async function handleOpenDirectory() {
 						</button>
 
 						{#if toolsOpen}
-							<div class="flex flex-col gap-3">
-								{#if formData.tools && formData.tools.length > 0}
-									<div class="flex flex-col gap-2">
-										{#each formData.tools as toolId, i}
-											{@const tool = tools.find(t => t.id === toolId)}
-											{#if tool}
-												<div class="flex items-center gap-2 rounded-lg bg-[var(--surface-input)] border border-[var(--border-primary)] px-3 py-2">
-													<span class="flex-1 text-sm text-[var(--text-primary)]">{tool.name || toolId}</span>
-													<button
-														type="button"
-														onclick={() => removeTool(i)}
-														class="text-[var(--text-faint)] hover:text-red-500 p-1 transition-colors cursor-pointer"
-													>
-														<Icon name="x" size={14} />
-													</button>
-												</div>
-											{/if}
+							<div class="pt-1">
+								{#if tools.length > 0}
+									<div class="grid grid-cols-6 gap-2">
+										{#each tools as t (t.Name)}
+											{@const selected = (formData.tools ?? []).includes(t.Name)}
+											<button
+												type="button"
+												onclick={() => toggleInList('tools', t.Name)}
+												title={t.Description || ''}
+												class="flex flex-col items-start gap-0.5 p-2.5 rounded-lg border text-left transition-all cursor-pointer min-w-0 {selected ? 'bg-[var(--accent-primary)]/15 border-[var(--accent-primary)] shadow-sm' : 'bg-[var(--surface-input)] border border-[var(--border-primary)] hover:border-[var(--accent-primary)]/50'}"
+											>
+												<span class="text-[11px] font-bold truncate w-full" style={selected ? 'color: var(--accent-primary)' : 'color: var(--text-primary)'}>{t.Name}</span>
+												<span class="text-[9px] leading-tight line-clamp-2 w-full" style="color: var(--text-faint)">{t.Description || '—'}</span>
+											</button>
 										{/each}
 									</div>
 								{:else}
-									<div class="py-6 text-center border-2 border-dashed border-[var(--border-primary)] rounded-xl opacity-40">
-										<p class="text-xs uppercase font-bold tracking-widest">No tools selected</p>
+									<div class="py-6 text-center border-2 border-dashed border-[var(--border-primary)] rounded-xl opacity-50">
+										<p class="text-xs uppercase font-bold tracking-widest text-[var(--text-muted)]">No tools available</p>
 									</div>
 								{/if}
-
-								<div class="flex items-center gap-2">
-									<select
-										bind:value={formData.tools}
-										class="flex-1 rounded-lg px-3 py-2 text-sm border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]/30"
-									>
-										<option value="">-- Select Tool --</option>
-										{#each tools as tool}
-											<option value={tool.id}>{tool.name || tool.id}</option>
-										{/each}
-									</select>
-									<button
-										type="button"
-										disabled={!formData.tools.includes(tools[0]?.id)}
-										onclick={addTool}
-										class="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-[0.2em] transition-all cursor-pointer disabled:opacity-30 {formData.tools.length > 0 ? 'bg-[var(--accent-primary)] text-white shadow-lg hover:brightness-110 active:scale-90' : 'bg-[var(--surface-input)] border border-[var(--border-primary)] text-[var(--text-muted)]'}"
-									>
-										<Icon name="plus" size={12} /> Add
-									</button>
-								</div>
 							</div>
 						{/if}
 					</div>
