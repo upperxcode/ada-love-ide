@@ -39,7 +39,7 @@
 		agents: [],
 		skills: [],
 		tools: [],
-		spec_wizards: [],
+		spec_wizard_id: '',
 		enabled: true,
 		color: '#3b82f6',
 		icon: '🏢',
@@ -54,10 +54,9 @@
 	// ── Collapsible state ──
 	let foldersOpen = $state(false);
 	let knowledgeFilesOpen = $state(false);
-	let agentsOpen = $state(false);
-	let skillsOpen = $state(false);
-	let toolsOpen = $state(false);
-	let specWizardsOpen = $state(false);
+		let agentsOpen = $state(false);
+		let skillsOpen = $state(false);
+		let toolsOpen = $state(false);
 
 	// ── New item state (removed: knowledge files only via Browse) ──
 
@@ -87,7 +86,7 @@
 				agents: entity.agents ?? [],
 				skills: entity.skills ?? [],
 				tools: entity.tools ?? [],
-				spec_wizards: entity.spec_wizards ?? [],
+				spec_wizard_id: entity.spec_wizard_id ?? '',
 			};
 			// Derive path from folders[0] if not already set
 			if ((!formData.path || formData.path === '') && formData.folders.length > 0) {
@@ -103,7 +102,7 @@
 				agents: [],
 				skills: [],
 				tools: [],
-				spec_wizards: [],
+				spec_wizard_id: '',
 				enabled: true,
 				color: '#3b82f6',
 				icon: '🏢',
@@ -163,18 +162,6 @@
 		formData[key] = list.includes(value)
 			? list.filter((v) => v !== value)
 			: [...list, value];
-	}
-
-	function addSpecWizard() {
-		const selectedWizard = specWizards.find(w => w.id === formData.spec_wizards.find((id: string) => id === w.id));
-		if (!selectedWizard) return;
-		if (!formData.spec_wizards.includes(selectedWizard.id)) {
-			formData.spec_wizards = [...formData.spec_wizards, selectedWizard.id];
-		}
-	}
-
-	function removeSpecWizard(index: number) {
-		formData.spec_wizards = formData.spec_wizards.filter((_: unknown, idx: number) => idx !== index);
 	}
 
 async function handleOpenDirectory() {
@@ -577,74 +564,17 @@ async function handleOpenDirectory() {
 						{/if}
 					</div>
 
-					<!-- Field 9: Spec Wizards (Collapsible) -->
+					<!-- Field 9: Spec Wizard (single select) -->
 					<div class="border-t border-[var(--border-primary)] pt-4 flex flex-col gap-3">
-						<button
-							type="button"
-							onclick={() => (specWizardsOpen = !specWizardsOpen)}
-							class="flex w-full items-center justify-between rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-primary)] p-4 transition-colors cursor-pointer hover:bg-[var(--surface-hover)]"
-						>
-							<div class="flex items-center gap-3">
-								<div class="w-8 h-8 rounded-lg bg-pink-500/10 flex items-center justify-center text-pink-500">
-									<Icon name="sparkles" size={14} />
-								</div>
-								<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Spec Wizards</h3>
-							</div>
-							<Icon
-								name="chevron-down"
-								size={16}
-								class={cn('transition-transform duration-300', specWizardsOpen && 'rotate-180')}
-								color="var(--text-faint)"
+						<SettingRow label="Spec Wizard" description="Associated Spec Wizard (single)">
+							<ThemedSelect
+								value={formData.spec_wizard_id ?? ''}
+								onValueChange={(v: string) => (formData.spec_wizard_id = v)}
+								options={specWizards.map((w: any) => ({ value: w.id, label: w.name || w.id }))}
+								placeholder="Select a Spec Wizard"
+								class="w-[26rem]"
 							/>
-						</button>
-
-						{#if specWizardsOpen}
-							<div class="flex flex-col gap-3">
-								{#if formData.spec_wizards && formData.spec_wizards.length > 0}
-									<div class="flex flex-col gap-2">
-										{#each formData.spec_wizards as wizardId, i}
-											{@const wizard = specWizards.find(w => w.id === wizardId)}
-											{#if wizard}
-												<div class="flex items-center gap-2 rounded-lg bg-[var(--surface-input)] border border-[var(--border-primary)] px-3 py-2">
-													<span class="flex-1 text-sm text-[var(--text-primary)]">{wizard.name || wizardId}</span>
-													<button
-														type="button"
-														onclick={() => removeSpecWizard(i)}
-														class="text-[var(--text-faint)] hover:text-red-500 p-1 transition-colors cursor-pointer"
-													>
-														<Icon name="x" size={14} />
-													</button>
-												</div>
-											{/if}
-										{/each}
-									</div>
-								{:else}
-									<div class="py-6 text-center border-2 border-dashed border-[var(--border-primary)] rounded-xl opacity-40">
-										<p class="text-xs uppercase font-bold tracking-widest">No spec wizards selected</p>
-									</div>
-								{/if}
-
-								<div class="flex items-center gap-2">
-									<select
-										bind:value={formData.spec_wizards}
-										class="flex-1 rounded-lg px-3 py-2 text-sm border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]/30"
-									>
-										<option value="">-- Select Spec Wizard --</option>
-										{#each specWizards as wizard}
-											<option value={wizard.id}>{wizard.name || wizard.id}</option>
-										{/each}
-									</select>
-									<button
-										type="button"
-										disabled={!formData.spec_wizards.includes(specWizards[0]?.id)}
-										onclick={addSpecWizard}
-										class="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-[0.2em] transition-all cursor-pointer disabled:opacity-30 {formData.spec_wizards.length > 0 ? 'bg-[var(--accent-primary)] text-white shadow-lg hover:brightness-110 active:scale-90' : 'bg-[var(--surface-input)] border border-[var(--border-primary)] text-[var(--text-muted)]'}"
-									>
-										<Icon name="plus" size={12} /> Add
-									</button>
-								</div>
-							</div>
-						{/if}
+						</SettingRow>
 					</div>
 
 					<!-- Field 10: Enabled (always true, hidden) -->
