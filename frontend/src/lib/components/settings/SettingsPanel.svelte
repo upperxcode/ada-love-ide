@@ -15,9 +15,16 @@ import WorkspaceDialog from './WorkspaceDialog.svelte';
 	interface SettingsPanelProps {
 		class?: string;
 		onClose?: () => void;
+		initialCategory?: CategoryId;
+		initialEntity?: Record<string, any> | null;
 	}
 
-	let { class: className, onClose }: SettingsPanelProps = $props();
+	let {
+		class: className,
+		onClose,
+		initialCategory = 'general',
+		initialEntity = null,
+	}: SettingsPanelProps = $props();
 
 	// ── Navigation categories ──
 	const categories = [
@@ -33,11 +40,22 @@ import WorkspaceDialog from './WorkspaceDialog.svelte';
 	] as const;
 
 	type CategoryId = (typeof categories)[number]['id'];
-	let activeCategory = $state<CategoryId>('general');
+	let activeCategory = $state<CategoryId>(initialCategory);
 
 	// ── Edit dialog state ──
 	let dialogOpen = $state(false);
-	let dialogEntity = $state<Record<string, any> | null>(null);
+	let dialogEntity = $state<Record<string, any> | null>(initialEntity);
+
+	// Sync external initialCategory/initialEntity when panel opens
+	$effect(() => {
+		activeCategory = initialCategory;
+	});
+	$effect(() => {
+		if (initialEntity) {
+			dialogEntity = { ...initialEntity };
+			dialogOpen = true;
+		}
+	});
 	let deleteConfirmOpen = $state(false);
 	let itemToDelete = $state<EntityCardData | null>(null);
 

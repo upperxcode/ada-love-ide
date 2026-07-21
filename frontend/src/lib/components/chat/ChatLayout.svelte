@@ -12,8 +12,14 @@
 
 	let sidebarOpen = $state(true);
 	let settingsOpen = $state(false);
+	let activeWorkspace = $state('');
+	let activeSessionID = $state('');
+	let settingsCategory = $state<string>('general');
+	let settingsEntity = $state<Record<string, any> | null>(null);
 
-	function openSettings() {
+	function openSettings(category = 'general', entity: Record<string, any> | null = null) {
+		settingsCategory = category;
+		settingsEntity = entity;
 		settingsOpen = true;
 		sidebarOpen = false;
 	}
@@ -21,10 +27,10 @@
 	function closeSettings() {
 		settingsOpen = false;
 		sidebarOpen = true;
+		settingsEntity = null;
 	}
 
 	function toggleSidebar() {
-		// If settings is open, close it first and go back to sidebar
 		if (settingsOpen) {
 			closeSettings();
 			return;
@@ -41,19 +47,28 @@
 		className
 	)}
 >
-	<!-- Sidebar — mutually exclusive with Settings, both on the left -->
 	{#if sidebarOpen}
-		<Sidebar onOpenSettings={openSettings} />
+		<Sidebar
+			onOpenSettings={() => openSettings()}
+			onNewWorkspace={() => openSettings('workspaces')}
+			onEditWorkspace={(ws) => openSettings('workspaces', ws)}
+			bind:activeWorkspace
+			bind:activeSessionID
+		/>
 	{/if}
 
-	<!-- Settings — replaces sidebar on the left -->
 	{#if settingsOpen}
-		<SettingsPanel onClose={closeSettings} />
+		<SettingsPanel
+			onClose={closeSettings}
+			initialCategory={settingsCategory as any}
+			initialEntity={settingsEntity}
+		/>
 	{/if}
 
-	<!-- Chat Panel — fills remaining space -->
 	<ChatPanel
 		{sidebarOpen}
+		{activeWorkspace}
+		bind:activeSessionID
 		onToggleSidebar={toggleSidebar}
 	/>
 </div>

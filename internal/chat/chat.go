@@ -7,8 +7,10 @@ import (
 	"strings"
 	"sync"
 
-	"ada-love-ide/internal/core"
+	"ada-love-ide/internal/adapters"
+	core "ada-love-core"
 
+	llm "github.com/upperxcode/ada-llm-client"
 	commands "github.com/upperxcode/ada-commands"
 	stream "github.com/upperxcode/ada-stream"
 )
@@ -64,7 +66,7 @@ func (e *streamingEmitter) Emit(event string, data ...any) {
 type Chat struct {
 	orch            *core.Orchestrator
 	emitter         Emitter // This will be our FrontendEmitter
-	streamingClient core.LLMStreamingClient
+	streamingClient adapters.LLMStreamingClient
 
 	mu       sync.Mutex
 	cancelFn map[string]context.CancelFunc
@@ -88,14 +90,14 @@ func New(orch *core.Orchestrator, frontendEmitter Emitter) *Chat {
 
 func (c *Chat) SetEmitter(e Emitter) { c.emitter = e }
 
-func (c *Chat) SetStreamingClient(sc core.LLMStreamingClient) {
+func (c *Chat) SetStreamingClient(sc adapters.LLMStreamingClient) {
 	c.streamingClient = sc
 }
 
 var ErrNoEmitter = errors.New("emitter não configurado")
 var ErrSessionNotFound = errors.New("sessão não encontrada")
 
-func (c *Chat) Send(ctx context.Context, sessionID, text, model, thinking, mode string) (string, error) {
+func (c *Chat) Send(ctx context.Context, sessionID, text, model, thinking, mode string, contextSize ...int) (string, error) {
 	fmt.Printf("[Chat.Send] ENTER session=%s text=%q model=%s thinking=%s mode=%s\n", sessionID, text[:min(50, len(text))], model, thinking, mode)
 	if c.emitter == nil {
 		return "", ErrNoEmitter
@@ -182,8 +184,21 @@ func (c *Chat) Send(ctx context.Context, sessionID, text, model, thinking, mode 
 		}
 	}
 
+	// Check static response from ada-llm-client (greetings, etc.)
+	if response, ok := llm.CheckStaticResponse(text); ok {
+		fmt.Printf("[Chat.Send] Static response matched for %q\n", text)
+		c.orch.SaveMessages(sessionID, text, response)
+		c.emitter.Emit("chat:turnEnd", map[string]any{"session_id": sessionID})
+		return response, nil
+	}
+
+	// Build full context via Orchestrator (pass context size if known)
+	prompt, err := c.orch.CompilePrompt(ctx, sessionID, text, contextSize...)
+	if err != nil {
+		return "", fmt.Errorf("failed to compile prompt: %w", err)
+	}
+
 	if c.streamingClient != nil {
-		// Register pending stream for this session
 		c.mu.Lock()
 		c.pending[sessionID] = &pendingStream{userInput: text}
 		c.mu.Unlock()
@@ -194,7 +209,7 @@ func (c *Chat) Send(ctx context.Context, sessionID, text, model, thinking, mode 
 
 		c.streamingClient.SetEmitter(stream.EventEmitter(emitter))
 
-		err := c.streamingClient.GenerateStream(ctx, sessionID, text, model)
+		err := c.streamingClient.GenerateStream(ctx, sessionID, prompt, model)
 		if err != nil {
 			fmt.Printf("[Chat.Send] GenerateStream ERROR: %v\n", err)
 			c.emitter.Emit("chat:error", map[string]any{
@@ -204,27 +219,20 @@ func (c *Chat) Send(ctx context.Context, sessionID, text, model, thinking, mode 
 			return "", err
 		}
 
-		// The actual streaming and event emission are handled by the adapter
-		// via handleStreamEvent and c.emitter. We should not call synchronous
-		// ProcessMessage here. The Send method should simply initiate the stream.
-		// The frontend will receive updates via delta events.
-		// The chat:turnEnd event is emitted by handleStreamEvent when the stream finishes.
-		return "", nil // Return empty, as response is streamed via deltas.
+		return "", nil
 	}
 
-	// Fallback for non-streaming clients or when streamingClient is nil
+	// Non-streaming fallback
 	tokens, err := c.orch.ProcessMessageStream(ctx, sessionID, text, model)
 	if err != nil {
 		fmt.Printf("[Chat.Send] ProcessMessageStream ERROR: %v\n", err)
 		return "", err
 	}
 
-	var full strings.Builder
-	tokenCount := 0
+	var fullStr strings.Builder
 	for token := range tokens {
-		tokenCount++
 		if token.Token != "" {
-			full.WriteString(token.Token)
+			fullStr.WriteString(token.Token)
 			c.emitter.Emit("chat:delta", map[string]any{
 				"session_id": sessionID,
 				"content":    token.Token,
@@ -234,12 +242,10 @@ func (c *Chat) Send(ctx context.Context, sessionID, text, model, thinking, mode 
 			break
 		}
 	}
-	fmt.Printf("[Chat.Send] Stream complete, tokens=%d, fullLen=%d\n", tokenCount, len(full.String()))
 
-	reply := full.String()
+	reply := fullStr.String()
 	c.orch.SaveMessages(sessionID, text, reply)
 	c.emitter.Emit("chat:turnEnd", map[string]any{"session_id": sessionID})
-	fmt.Printf("[Chat.Send] EXIT session=%s replyLen=%d\n", sessionID, len(reply))
 	return reply, nil
 }
 

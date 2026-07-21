@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"ada-love-ide/internal/core"
+	core "ada-love-core"
 )
 
 func min(a, b int) int {
@@ -19,7 +19,16 @@ func min(a, b int) int {
 func (a *App) SendMessage(sessionID, text, modelOverride, thinkingLevel, mode string) (string, error) {
 	fmt.Printf("[SendMessage] ENTER session=%s text=%q model=%s thinking=%s mode=%s\n", sessionID, text[:min(50, len(text))], modelOverride, thinkingLevel, mode)
 	ctx := context.Background()
-	resp, err := a.eng.Chat.Send(ctx, sessionID, text, modelOverride, thinkingLevel, mode)
+
+	// Resolve context size from session's model (modelOverride = "provider/model")
+	ctxSize := 0
+	if modelOverride != "" {
+		if ms, ok := a.eng.GetModelSettings(modelOverride); ok && ms.ContextSize > 0 {
+			ctxSize = ms.ContextSize
+		}
+	}
+
+	resp, err := a.eng.Chat.Send(ctx, sessionID, text, modelOverride, thinkingLevel, mode, ctxSize)
 	fmt.Printf("[SendMessage] EXIT session=%s respLen=%d err=%v\n", sessionID, len(resp), err)
 	return resp, err
 }

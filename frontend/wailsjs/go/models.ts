@@ -279,6 +279,29 @@ export namespace core {
 
 }
 
+export namespace engine {
+	
+	export class ContextInfo {
+	    context_limit: number;
+	    context_used: number;
+	    system_tokens: number;
+	    messages_tokens: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ContextInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.context_limit = source["context_limit"];
+	        this.context_used = source["context_used"];
+	        this.system_tokens = source["system_tokens"];
+	        this.messages_tokens = source["messages_tokens"];
+	    }
+	}
+
+}
+
 export namespace main {
 	
 	export class MCPServerRegistry {
@@ -509,6 +532,7 @@ export namespace provider {
 	    tools: boolean;
 	    free: boolean;
 	    thinking: boolean;
+	    context_size?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProviderModel(source);
@@ -523,6 +547,7 @@ export namespace provider {
 	        this.tools = source["tools"];
 	        this.free = source["free"];
 	        this.thinking = source["thinking"];
+	        this.context_size = source["context_size"];
 	    }
 	}
 	export class ProviderTestResult {

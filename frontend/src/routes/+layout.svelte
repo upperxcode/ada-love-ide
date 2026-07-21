@@ -16,7 +16,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<!-- Preload: Geist font is loaded by default via shadcn's @fontsource-variable -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
 </svelte:head>
 
 	{@render children()}

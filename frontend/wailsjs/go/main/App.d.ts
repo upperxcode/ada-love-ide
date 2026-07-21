@@ -8,11 +8,14 @@ import {ada} from '../models';
 import {agent} from '../models';
 import {specwizardmgr} from '../models';
 import {mcp} from '../models';
+import {engine} from '../models';
 import {skill} from '../models';
 import {worker} from '../models';
 import {workspace} from '../models';
 import {command} from '../models';
 import {main} from '../models';
+
+export function AddWorkerToWorkspace(arg1:string,arg2:string):Promise<void>;
 
 export function AddWorkspace(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
@@ -22,7 +25,11 @@ export function AnswerQuestion(arg1:string,arg2:string):Promise<void>;
 
 export function ComputeHealth(arg1:specwizard.SpecWizardConfig):Promise<number>;
 
+export function CountWorkerSessions(arg1:string,arg2:string):Promise<number>;
+
 export function CreateSession(arg1:string,arg2:string):Promise<core.Session>;
+
+export function CreateSessionWithConfig(arg1:string,arg2:string,arg3:string):Promise<core.Session>;
 
 export function CreateSummarizedSession(arg1:string,arg2:string,arg3:string):Promise<core.Session>;
 
@@ -74,6 +81,16 @@ export function GetProvidersConfig():Promise<Record<string, provider.ProviderCon
 
 export function GetRecommendations(arg1:specwizard.SpecWizardConfig):Promise<Array<specwizardmgr.Recommendation>>;
 
+export function GetSessionByID(arg1:string):Promise<core.Session>;
+
+export function GetSessionContextInfo(arg1:string):Promise<engine.ContextInfo>;
+
+export function GetSessionDir(arg1:string):Promise<string>;
+
+export function GetSessionMessages(arg1:string):Promise<Array<core.RawMessage>>;
+
+export function GetSessionWorkspaceSpec(arg1:string):Promise<specwizard.SpecWizardConfig>;
+
 export function GetSessions(arg1:string):Promise<Array<core.Session>>;
 
 export function GetSkillDetails(arg1:string):Promise<string>;
@@ -98,6 +115,10 @@ export function GetWorkers():Promise<Array<worker.WorkerConfig>>;
 
 export function GetWorkspace(arg1:string):Promise<workspace.WorkspaceConfig>;
 
+export function GetWorkspaceDir(arg1:string):Promise<string>;
+
+export function GetWorkspaceSpec(arg1:string):Promise<specwizard.SpecWizardConfig>;
+
 export function GetWorkspaceTemplates():Promise<Array<workspace.WorkspaceTemplate>>;
 
 export function GetWorkspaces():Promise<Array<workspace.WorkspaceConfig>>;
@@ -116,11 +137,17 @@ export function ListChatProviders():Promise<Array<string>>;
 
 export function ListCommands():Promise<Array<command.CommandInfo>>;
 
+export function ListWorkspaceWorkers(arg1:string):Promise<Array<worker.WorkerConfig>>;
+
+export function NextChatName(arg1:string,arg2:string):Promise<string>;
+
 export function OpenDirectoryDialog():Promise<string>;
 
 export function OpenFileDialog():Promise<string>;
 
 export function RemoveModel(arg1:string,arg2:string):Promise<void>;
+
+export function RemoveWorkerFromWorkspace(arg1:string,arg2:string):Promise<void>;
 
 export function RenameSession(arg1:string,arg2:string):Promise<core.Session>;
 
@@ -163,6 +190,8 @@ export function SetWorkers(arg1:Array<worker.WorkerConfig>):Promise<void>;
 export function SetWorkspaces(arg1:Array<workspace.WorkspaceConfig>):Promise<void>;
 
 export function StopGeneration(arg1:string):Promise<void>;
+
+export function SyncSpecToWorkspaceBySession(arg1:string):Promise<void>;
 
 export function TestConnection(arg1:string,arg2:string,arg3:string):Promise<mcp.ConnectionTestResult>;
 

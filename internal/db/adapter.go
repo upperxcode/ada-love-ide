@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"ada-love-ide/internal/core"
+	core "ada-love-core"
 )
 
 // StorageAdapter envolve *Store e implementa core.StorageEngine.

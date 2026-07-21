@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"ada-love-ide/internal/config/agent"
@@ -14,6 +15,7 @@ import (
 	"ada-love-ide/internal/config/specwizard"
 	"ada-love-ide/internal/config/tool"
 	"ada-love-ide/internal/config/workspace"
+	iprovider "ada-love-ide/internal/provider"
 
 	storage "github.com/ada-love-ai/storage/storage"
 )
@@ -65,14 +67,16 @@ func (s *Store) SaveProvider(name string, cfg provider.ProviderConfig) {
 	}
 	for modelName, ms := range cfg.Models {
 		_ = s.models.CreateProviderModel(ctx, &storage.ProviderModel{
-			ProviderID: providerID,
-			Model:      modelName,
-			Free:       ms.Free,
-			Thinking:   ms.Thinking,
-			Tool:       ms.Tools,
-			Embedding:  ms.Embedding,
-			Vision:     ms.Vision,
-			Health:     100,
+			ProviderID:  providerID,
+			Model:       modelName,
+			Free:        ms.Free,
+			Thinking:    ms.Thinking,
+			Tool:        ms.Tools,
+			Embedding:   ms.Embedding,
+			Vision:      ms.Vision,
+			Health:      100,
+			ContextSize: ms.ContextSize,
+			MaxTokens:   ms.MaxTokens,
 		})
 	}
 
@@ -110,11 +114,13 @@ func (s *Store) DeleteProvider(name string) {
 	models, _ := s.models.GetProviderModels(ctx, p.ID)
 	for _, m := range models {
 		cfg.Models[m.Model] = provider.ModelSettings{
-			Free:      m.Free,
-			Thinking:  m.Thinking,
-			Tools:     m.Tool,
-			Embedding: m.Embedding,
-			Vision:    m.Vision,
+			Free:        m.Free,
+			Thinking:    m.Thinking,
+			Tools:       m.Tool,
+			Embedding:   m.Embedding,
+			Vision:      m.Vision,
+			ContextSize: m.ContextSize,
+			MaxTokens:   m.MaxTokens,
 		}
 	}
 
@@ -861,5 +867,33 @@ func (s *Store) SaveFixedModel(name, provider, model string, tools []string) {
 }
 
 // ── Tools ──────────────────────────────────────────────────────
+
+// GetModelSettings retorna as configurações (context_size, max_tokens etc.)
+// de um modelo no formato "provider/model".
+func (s *Store) GetModelSettings(modelString string) (provider.ModelSettings, bool) {
+	if modelString == "" || !strings.Contains(modelString, "/") {
+		return provider.ModelSettings{}, false
+	}
+	parts := strings.SplitN(modelString, "/", 2)
+	providerName := parts[0]
+	modelName := parts[1]
+
+	providers := s.ListProviders()
+	p, ok := providers[providerName]
+	if !ok {
+		return provider.ModelSettings{}, false
+	}
+	ms, ok := p.Models[modelName]
+	if !ok {
+		return provider.ModelSettings{}, false
+	}
+	// Fallback: inferir context_size do nome se não foi configurado
+	if ms.ContextSize <= 0 {
+		if inferred := iprovider.InferContextSize(modelName); inferred > 0 {
+			ms.ContextSize = inferred
+		}
+	}
+	return ms, true
+}
 
 // ── Tools ──────────────────────────────────────────────────────

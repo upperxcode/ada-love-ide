@@ -20,6 +20,10 @@ export const iconMap: Record<string, IconEntry> = {
     lucide: 'Brain',
     material: 'M12 2a6 6 0 0 0-6 6c0 1.5.56 2.88 1.48 3.94-.3.97-.48 2-.48 3.06 0 1.06.18 2.09.48 3.06A6 6 0 1 0 18 12a6 6 0 0 0-6-6z',
   },
+  copy: {
+    lucide: 'Copy',
+    material: 'M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z',
+  },
   check: {
     lucide: 'Check',
     material: 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z',
@@ -67,6 +71,18 @@ export const iconMap: Record<string, IconEntry> = {
   log: {
     lucide: 'ScrollText',
     material: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM7 7h10v2H7V7zm0 4h10v2H7v-2zm0 4h7v2H7v-2z',
+  },
+  pinOn: {
+    lucide: 'Pin',
+    material: 'M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2z',
+  },
+  pinOff: {
+    lucide: 'PinOff',
+    material: 'M2 5.27L3.28 4L20 20.72L18.73 22l-5.93-5.93V22h-1.6v-6H6v-2l2-2v-.73zM16 12l2 2v2h-.18L8 6.18V4H7V2h10v2h-1z',
+  },
+  deleteIcon: {
+    lucide: 'Trash2',
+    material: 'M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12l1.41 1.41L13.41 14l2.12 2.12l-1.41 1.41L12 15.41l-2.12 2.12l-1.41-1.41L10.59 14zM15.5 4l-1-1h-5l-1 1H5v2h14V4z',
   },
   pencil: {
     lucide: 'Pencil',

@@ -2,8 +2,12 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
-	"ada-love-ide/internal/core"
+	"ada-love-ide/internal/config/specwizard"
+	"ada-love-ide/internal/config/workspace"
+	"ada-love-ide/internal/engine"
+	core "ada-love-core"
 )
 
 // Sessions / Chat ─────────────────────────────────────────────────
@@ -11,6 +15,22 @@ import (
 // CreateSession cria um novo chat no workspace/worker indicados.
 func (a *App) CreateSession(workspaceID, workerName string) core.Session {
 	return a.eng.Saver.Create(workspaceID, workerName)
+}
+
+// CreateSessionWithConfig cria um novo chat copiando a config (model, provider, mode, thinking) de uma sessão existente.
+func (a *App) CreateSessionWithConfig(workspaceID, workerName, sourceSessionID string) (core.Session, error) {
+	sess := a.eng.Saver.Create(workspaceID, workerName)
+	if sourceSessionID != "" {
+		src, ok := a.eng.DB.GetSession(sourceSessionID)
+		if ok {
+			_ = a.eng.Saver.SetConfig(sess.ID, src.Model, src.Provider, src.Mode, src.Thinking)
+			sess.Model = src.Model
+			sess.Provider = src.Provider
+			sess.Mode = src.Mode
+			sess.Thinking = src.Thinking
+		}
+	}
+	return sess, nil
 }
 
 // CreateSummarizedSession cria um chat filho de outro.
@@ -21,6 +41,20 @@ func (a *App) CreateSummarizedSession(workspaceID, workerName, sourceSessionID s
 // GetSessions lista as sessões de um workspace.
 func (a *App) GetSessions(workspaceID string) []core.Session {
 	return a.eng.Fetcher.List(workspaceID)
+}
+
+// GetSessionByID retorna uma sessão pelo ID.
+func (a *App) GetSessionByID(id string) (core.Session, error) {
+	sess, ok := a.eng.DB.GetSession(id)
+	if !ok {
+		return core.Session{}, fmt.Errorf("sessão %s não encontrada", id)
+	}
+	return *sess, nil
+}
+
+// GetSessionMessages retorna as mensagens de uma sessão.
+func (a *App) GetSessionMessages(sessionID string) []core.RawMessage {
+	return a.eng.DB.GetMessages(sessionID)
 }
 
 // DeleteSession remove a sessão.
@@ -41,3 +75,46 @@ func (a *App) SetSessionConfig(id, model, provider, mode, thinking string) error
 
 // ErrSessionNotFound re-export para que o frontend possa detectar.
 var ErrSessionNotFound = errors.New("sessão não encontrada")
+
+// GetSessionWorkspaceSpec retorna o Spec Wizard vinculado ao workspace da sessão.
+func (a *App) GetSessionWorkspaceSpec(sessionID string) (*specwizard.SpecWizardConfig, error) {
+	sess, ok := a.eng.DB.GetSession(sessionID)
+	if !ok {
+		return nil, fmt.Errorf("sessão %s não encontrada", sessionID)
+	}
+	ws, err := a.eng.DB.GetWorkspace(sess.WorkspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("workspace %s não encontrado: %w", sess.WorkspaceID, err)
+	}
+	if ws.SpecWizardID == "" {
+		return nil, fmt.Errorf("workspace %s não possui Spec Wizard configurado", ws.Title)
+	}
+	wiz, ok := a.eng.DB.GetWizard(ws.SpecWizardID)
+	if !ok {
+		return nil, fmt.Errorf("Spec Wizard %s não encontrado", ws.SpecWizardID)
+	}
+	return &wiz, nil
+}
+
+// GetWorkspaceSpec retorna o Spec Wizard configurado em um workspace pelo path.
+func (a *App) GetWorkspaceSpec(workspacePath string) (*specwizard.SpecWizardConfig, error) {
+	ws, err := a.eng.DB.GetWorkspace(workspacePath)
+	if err != nil {
+		return nil, fmt.Errorf("workspace %s não encontrado: %w", workspacePath, err)
+	}
+	if ws.SpecWizardID == "" {
+		return nil, fmt.Errorf("workspace %s não possui Spec Wizard configurado", ws.Title)
+	}
+	wiz, ok := a.eng.DB.GetWizard(ws.SpecWizardID)
+	if !ok {
+		return nil, fmt.Errorf("Spec Wizard %s não encontrado", ws.SpecWizardID)
+	}
+	return &wiz, nil
+}
+
+var _ = workspace.WorkspaceConfig{}
+
+// ContextInfo retorna o uso de contexto de uma sessão.
+func (a *App) GetSessionContextInfo(sessionID string) engine.ContextInfo {
+	return a.eng.GetSessionContextInfo(sessionID)
+}

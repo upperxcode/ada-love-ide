@@ -39,13 +39,14 @@ func New(name string) ProviderConfig {
 }
 
 type ProviderModel struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Vision    bool   `json:"vision"`
-	Embedding bool   `json:"embedding"`
-	Tools     bool   `json:"tools"`
-	Free      bool   `json:"free"`
-	Thinking  bool   `json:"thinking"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Vision      bool   `json:"vision"`
+	Embedding   bool   `json:"embedding"`
+	Tools       bool   `json:"tools"`
+	Free        bool   `json:"free"`
+	Thinking    bool   `json:"thinking"`
+	ContextSize int    `json:"context_size,omitempty"`
 }
 
 type ProviderTestResult struct {

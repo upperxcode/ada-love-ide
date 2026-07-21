@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"ada-love-ide/internal/adapters"
 	"ada-love-ide/internal/chat"
 	"ada-love-ide/internal/commands"
 	"ada-love-ide/internal/configfile"
-	"ada-love-ide/internal/core"
+	"ada-love-ide/internal/config/provider"
+	core "ada-love-core"
 	"ada-love-ide/internal/db"
 	"ada-love-ide/internal/icons"
 	"ada-love-ide/internal/modelselect"
@@ -22,6 +25,8 @@ import (
 	"ada-love-ide/internal/specwizardmgr"
 
 	llm "github.com/upperxcode/ada-llm-client"
+	codeIndexer "ada-code-indexer/core"
+	codeIndexerStore "ada-code-indexer/storage"
 	adaCommands "github.com/upperxcode/ada-commands"
 	executor "github.com/upperxcode/ada-executor"
 	wiki "github.com/upperxcode/ada-llm-wiki"
@@ -42,6 +47,7 @@ type Engine struct {
 	Router       *adaCommands.CommandRouter
 	Executor     *executor.TaskExecutor
 	WorkspaceDir string
+	CodeIndexer  *codeIndexerStore.Store
 
 	ctx context.Context
 }
@@ -68,10 +74,10 @@ func New() (*Engine, error) {
 	adapter := db.NewStorageAdapter(store)
 
 	var llmClient core.LLMClient
-	var streamingClient core.LLMStreamingClient
+	var streamingClient adapters.LLMStreamingClient
 	providers := store.ListProviders()
 
-	validProviders := make(map[string]core.ProviderConfig)
+	validProviders := make(map[string]adapters.ProviderConfig)
 	var defaultModel string
 
 	for name, p := range providers {
@@ -84,7 +90,7 @@ func New() (*Engine, error) {
 			apiKey = p.APIKeys[0].Key
 		}
 
-		validProviders[name] = core.ProviderConfig{
+		validProviders[name] = adapters.ProviderConfig{
 			Type:    p.TypeConnection,
 			BaseURL: p.APIURL,
 			APIKey:  apiKey,
@@ -114,20 +120,20 @@ func New() (*Engine, error) {
 			frontendEmitter.Emit(eventName, optionalData...) // Use the created frontendEmitter
 		}
 
-		llmAdapter := core.NewMultiLLMAdapterWithEmitter(validProviders, defaultModel, streamEmitterAdapter)
+		llmAdapter := adapters.NewMultiLLMAdapterWithEmitter(validProviders, defaultModel, streamEmitterAdapter)
+		llmAdapter.SetTools(buildToolDefs(store))
 		llmClient = llmAdapter
 		streamingClient = llmAdapter
 
 		fmt.Printf("[Engine] Using MultiLLMAdapter with providers: %v, default: %s\n", len(validProviders), defaultModel)
 	} else {
 		fmt.Println("[Engine] WARNING: No providers configured - chat will not work")
-		// Create adapter even if no providers, passing nil emitter.
-		llmAdapter := core.NewMultiLLMAdapterWithEmitter(nil, "", nil)
+		llmAdapter := adapters.NewMultiLLMAdapterWithEmitter(nil, "", nil)
 		llmClient = llmAdapter
 		streamingClient = llmAdapter
 	}
 
-	compactor := core.NewCompactorAdapter(8000, 5, "You are a helpful AI assistant.")
+	compactor := adapters.NewCompactorAdapter(8000, 5, "You are a helpful AI assistant.")
 
 	// Initialize ada-executor with workspace directory from active workspace
 	// Get the active workspace and use its first folder as the working directory
@@ -181,7 +187,7 @@ func New() (*Engine, error) {
 		router.Register(commands.NewPlanCommand(taskExecutor, workspaceDir))
 	}
 
-	realExecutor := core.NewExecutorAdapter(router)
+	realExecutor := adapters.NewExecutorAdapter(router)
 	orch := core.NewOrchestrator(adapter, llmClient, compactor, realExecutor)
 
 	wikiDir := filepath.Join(home, ".config", "ada-love-ide", "wiki")
@@ -190,7 +196,7 @@ func New() (*Engine, error) {
 	if err := wikiMgr.LoadArticles(); err != nil {
 		fmt.Printf("[Engine] WARNING: Failed to load wiki articles: %v\n", err)
 	}
-	orch.Wiki = wikiMgr
+	orch.Wiki = adapters.NewWikiAdapter(wikiMgr)
 
 	// Pass the frontendEmitter to the Chat
 	ch := chat.New(orch, frontendEmitter) // Pass the frontendEmitter
@@ -203,6 +209,103 @@ func New() (*Engine, error) {
 	skillsDir := filepath.Join(home2, ".opencode", "skills")
 	os.MkdirAll(skillsDir, 0o755)
 	skm := skillmanager.New(skillsDir)
+
+	// Extra context layers (.AGENTS.md, skills, knowledge, code-indexer)
+	orch.ExtraContext = func(ctx context.Context, sessionID, userInput string) string {
+		sess, ok := store.GetSession(sessionID)
+		if !ok || sess.WorkspaceID == "" {
+			return ""
+		}
+		ws, err := store.GetWorkspace(sess.WorkspaceID)
+		if err != nil {
+			return ""
+		}
+		wsDir := ws.Path
+		if len(ws.Folders) > 0 && ws.Folders[0] != "" {
+			wsDir = ws.Folders[0]
+		}
+		var layers strings.Builder
+
+		// Workspace directory (so the LLM knows where it can create files)
+		layers.WriteString("=== WORKSPACE ===\n")
+		layers.WriteString("You have read/write access to the following directory:\n")
+		layers.WriteString(wsDir)
+		layers.WriteString("\n\n")
+
+		// .AGENTS.md
+		agentsPath := filepath.Join(wsDir, ".AGENTS.md")
+		if data, err := os.ReadFile(agentsPath); err == nil && len(data) > 0 {
+			layers.WriteString("=== ARCHITECTURAL GOLDEN RULES ===\n")
+			layers.Write(data)
+			layers.WriteString("\n")
+		}
+
+		// Workspace skills
+		if len(ws.Skills) > 0 {
+			layers.WriteString("=== SKILLS ===\n")
+			for _, name := range ws.Skills {
+				if info, err := skm.GetInfo(name); err == nil && info != nil && info.Markdown != "" {
+					layers.WriteString("--- ")
+					layers.WriteString(name)
+					layers.WriteString(" ---\n")
+					layers.WriteString(info.Markdown)
+					layers.WriteString("\n")
+				}
+			}
+		}
+
+		// Knowledge (if small enough)
+		if len(ws.Knowledge) > 0 {
+			kb := strings.Join(ws.Knowledge, "\n")
+			if compactor.CountTokens(kb) < 2000 {
+				layers.WriteString("=== KNOWLEDGE ===\n")
+				layers.WriteString(kb)
+				layers.WriteString("\n")
+			}
+		}
+
+		return layers.String()
+	}
+
+	// Initialize code indexer (background crawl)
+	codeIdxStore := codeIndexerStore.NewStore()
+	if workspaceDir != "" && workspaceDir != "." {
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("[Engine] Code indexer panic: %v\n", r)
+				}
+			}()
+			fmt.Printf("[Engine] Starting code indexer for %s\n", workspaceDir)
+			if err := codeIndexer.StartCrawler(workspaceDir, codeIdxStore, 10000); err != nil {
+				fmt.Printf("[Engine] Code indexer error: %v\n", err)
+			}
+			fmt.Printf("[Engine] Code indexer ready: %d symbols\n", codeIdxStore.Size())
+		}()
+	}
+
+	// Add code-indexer search to extra context (update closure)
+	origExtra := orch.ExtraContext
+	orch.ExtraContext = func(ctx context.Context, sessionID, userInput string) string {
+		base := origExtra(ctx, sessionID, userInput)
+		if codeIdxStore.Size() > 0 && userInput != "" {
+			symbols := codeIdxStore.Search(userInput)
+			if len(symbols) > 0 {
+				var sb strings.Builder
+				sb.WriteString("=== RELEVANT CODE SYMBOLS ===\n")
+				maxSym := 10
+				if len(symbols) < maxSym {
+					maxSym = len(symbols)
+				}
+				for _, s := range symbols[:maxSym] {
+					sb.WriteString(fmt.Sprintf("- %s (%s) in %s:%d\n", s.Name, s.Type, s.FilePath, s.StartLine))
+				}
+				sb.WriteString("\n")
+				return base + sb.String()
+			}
+		}
+		return base
+	}
 
 	regMgr := skillmanager.NewRegistryManager()
 	regMgr.AddRegistry(skillmanager.NewClawHubRegistry("https://clawhub.ai", ""))
@@ -268,6 +371,19 @@ func New() (*Engine, error) {
 	})
 
 	// Register health command after skm and pluginMgr are available
+	router.Register(&commands.SyncSpecCommand{
+		SyncFn: func(workspacePath string) error {
+			ws, err := store.GetWorkspace(workspacePath)
+			if err != nil {
+				return err
+			}
+			if ws.SpecWizardID == "" {
+				return fmt.Errorf("workspace %s não possui Spec Wizard", ws.Title)
+			}
+			specwizardmgr.SyncSpecToWorkspace(store, ws)
+			return nil
+		},
+	})
 	router.Register(commands.NewHealthCommand(
 		commands.HealthCheck{
 			Component: "configs",
@@ -365,7 +481,30 @@ func New() (*Engine, error) {
 		Router:       router,
 		Executor:     taskExecutor,
 		WorkspaceDir: workspaceDir,
+		CodeIndexer:  codeIdxStore,
 	}, nil
+}
+
+func buildToolDefs(store *db.Store) []llm.ToolDefinition {
+	tools := store.AvailableTools()
+	defs := make([]llm.ToolDefinition, 0, len(tools))
+	for _, t := range tools {
+		if !t.Enabled {
+			continue
+		}
+		defs = append(defs, llm.ToolDefinition{
+			Type: "function",
+			Function: llm.ToolFunction{
+				Name:        t.Name,
+				Description: t.Description,
+				Parameters: map[string]interface{}{
+					"type":       "object",
+					"properties": map[string]interface{}{},
+				},
+			},
+		})
+	}
+	return defs
 }
 
 func (e *Engine) SetContext(ctx context.Context) { e.ctx = ctx }
@@ -380,4 +519,86 @@ func (e *Engine) Close() error {
 
 func (e *Engine) StreamManager() *stream.StreamManager {
 	return stream.NewStreamManager()
+}
+
+func (e *Engine) ResolveWorkspaceDir(workspacePath string) string {
+	ws, err := e.DB.GetWorkspace(workspacePath)
+	if err != nil {
+		fmt.Printf("[engine] ResolveWorkspaceDir: workspace %q not found, using fallback\n", workspacePath)
+		return e.WorkspaceDir
+	}
+	if len(ws.Folders) > 0 && ws.Folders[0] != "" {
+		return ws.Folders[0]
+	}
+	if ws.Path != "" {
+		return ws.Path
+	}
+	return e.WorkspaceDir
+}
+
+func (e *Engine) ResolveSessionDir(sessionID string) string {
+	sess, ok := e.DB.GetSession(sessionID)
+	if !ok || sess.WorkspaceID == "" {
+		fmt.Printf("[engine] ResolveSessionDir: session %q not found, using fallback\n", sessionID)
+		return e.WorkspaceDir
+	}
+	return e.ResolveWorkspaceDir(sess.WorkspaceID)
+}
+
+func (e *Engine) GetWorkspaceBySession(sessionID string) (string, error) {
+	sess, ok := e.DB.GetSession(sessionID)
+	if !ok {
+		return "", fmt.Errorf("session %q not found", sessionID)
+	}
+	return sess.WorkspaceID, nil
+}
+
+// ContextInfo retorna o uso de contexto de uma sessão.
+type ContextInfo struct {
+	ContextLimit  int     `json:"context_limit"`
+	ContextUsed   int     `json:"context_used"`
+	SystemTokens  int     `json:"system_tokens"`
+	MessagesTokens int    `json:"messages_tokens"`
+}
+
+func (e *Engine) GetSessionContextInfo(sessionID string) ContextInfo {
+	sess, ok := e.DB.GetSession(sessionID)
+	if !ok {
+		return ContextInfo{}
+	}
+
+	// 1. Context limit: model settings > workspace config
+	ctxLimit := 0
+	if sess.Provider != "" && sess.Model != "" {
+		modelString := sess.Provider + "/" + sess.Model
+		if ms, ok := e.DB.GetModelSettings(modelString); ok && ms.ContextSize > 0 {
+			ctxLimit = ms.ContextSize
+		}
+	}
+	if ctxLimit <= 0 {
+		ws, err := e.DB.GetWorkspace(sess.WorkspaceID)
+		if err == nil && ws.MaxContextLength > 0 {
+			ctxLimit = ws.MaxContextLength
+		}
+	}
+
+	// 2. Token usage — count real tokens via compactor
+	msgs := e.DB.GetMessages(sessionID)
+	sysTokens := 120
+	msgsTokens := 0
+	for _, m := range msgs {
+		msgsTokens += e.Orch.Compactor.CountTokens(m.Content)
+	}
+	used := sysTokens + msgsTokens
+
+	return ContextInfo{
+		ContextLimit:   ctxLimit,
+		ContextUsed:    used,
+		SystemTokens:   sysTokens,
+		MessagesTokens: msgsTokens,
+	}
+}
+
+func (e *Engine) GetModelSettings(modelString string) (provider.ModelSettings, bool) {
+	return e.DB.GetModelSettings(modelString)
 }

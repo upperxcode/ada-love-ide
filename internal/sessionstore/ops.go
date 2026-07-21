@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"ada-love-ide/internal/core"
+	core "ada-love-core"
 )
 
 // Delete remove a sessão do banco.
@@ -44,16 +44,25 @@ func (s *Saver) SetConfig(id, model, provider, mode, thinking string) error {
 		return ErrNotFound
 	}
 
-	// Se provider não foi passado mas model tem formato "provider/model"
+	// Extrai provider do model se não foi passado separadamente
 	if provider == "" && model != "" {
 		parts := strings.SplitN(model, "/", 2)
 		if len(parts) == 2 {
 			provider = parts[0]
-			sess.Provider = provider
+		}
+	}
+
+	// Model nunca deve conter o prefixo do provider
+	if model != "" && strings.Contains(model, "/") {
+		parts := strings.SplitN(model, "/", 2)
+		model = parts[len(parts)-1]
+		if provider == "" {
+			provider = parts[0]
 		}
 	}
 
 	sess.Model = model
+	sess.Provider = provider
 	sess.Mode = mode
 	sess.Thinking = thinking
 	sess.UpdatedAt = time.Now()

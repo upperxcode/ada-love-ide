@@ -3,7 +3,7 @@
 package sessionfetch
 
 import (
-	"ada-love-ide/internal/core"
+	core "ada-love-core"
 	"ada-love-ide/internal/db"
 )
 

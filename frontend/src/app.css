@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
 /* ── ADA LOVE IDE — Theme-Aware CSS Variables ────────────────────────
  * All color/font values are injected at runtime by the theme store

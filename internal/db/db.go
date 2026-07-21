@@ -116,6 +116,10 @@ func (s *Store) Mcps() *storage.McpStore { return s.mcps }
 
 func (s *Store) FixedModels() *storage.FixedModelStore { return s.fixedModels }
 
+func (s *Store) WorkspaceStore() *storage.WorkspaceStore { return s.workspaces }
+
+func (s *Store) WorkerStore() *storage.WorkerStore { return s.workers }
+
 func (s *Store) loadConfigDefaults(ctx context.Context) {
 	if v, err := s.config.GetConfig(ctx, "active_workspace"); err == nil {
 		s.activeWorkspace = v

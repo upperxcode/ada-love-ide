@@ -89,13 +89,14 @@ func (a *App) FetchProviderModels(name, connectionType, apiUrl, apiKey string) [
 	out := make([]provider.ProviderModel, 0, len(discovered))
 	for _, m := range discovered {
 		out = append(out, provider.ProviderModel{
-			ID:        m.ID,
-			Name:      m.ID,
-			Free:      m.Capabilities.Free,
-			Thinking:  m.Capabilities.Thinking,
-			Vision:    m.Capabilities.Vision,
-			Embedding: m.Capabilities.Embedding,
-			Tools:     m.Capabilities.Tools,
+			ID:          m.ID,
+			Name:        m.ID,
+			Free:        m.Capabilities.Free,
+			Thinking:    m.Capabilities.Thinking,
+			Vision:      m.Capabilities.Vision,
+			Embedding:   m.Capabilities.Embedding,
+			Tools:       m.Capabilities.Tools,
+			ContextSize: m.ContextSize,
 		})
 	}
 	return out

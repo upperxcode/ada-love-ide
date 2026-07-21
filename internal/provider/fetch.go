@@ -14,11 +14,12 @@ import (
 )
 
 // DiscoveredModel is one row returned by a provider's /models endpoint, with
-// its inferred capabilities attached.
+// its inferred capabilities and context size attached.
 type DiscoveredModel struct {
 	ID           string
 	AlreadyAdded bool
 	Capabilities Capabilities
+	ContextSize  int
 }
 
 // ErrNoAPIKey is returned when a connection type requires a key and none is
@@ -64,10 +65,16 @@ func FetchModels(ctx context.Context, cfg provider.ProviderConfig) ([]Discovered
 	out := make([]DiscoveredModel, 0, len(ids))
 	for _, id := range ids {
 		_, already := cfg.Models[id]
+		existingCfg := cfg.Models[id]
+		ctxSize := InferContextSize(id)
+		if existingCfg.ContextSize > ctxSize {
+			ctxSize = existingCfg.ContextSize
+		}
 		out = append(out, DiscoveredModel{
 			ID:           id,
 			AlreadyAdded: already,
 			Capabilities: InferCapabilities(id),
+			ContextSize:  ctxSize,
 		})
 	}
 	return out, nil

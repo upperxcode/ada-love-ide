@@ -3,8 +3,9 @@ module ada-love-ide
 go 1.26.5
 
 require (
+	ada-code-indexer v0.0.0-00010101000000-000000000000
+	ada-love-core v0.0.0-00010101000000-000000000000
 	github.com/ada-love-ai/storage v0.0.0-00010101000000-000000000000
-	github.com/google/uuid v1.6.0
 	github.com/upperxcode/ada-commands v0.0.0-00010101000000-000000000000
 	github.com/upperxcode/ada-context v0.0.0-00010101000000-000000000000
 	github.com/upperxcode/ada-executor v0.0.0-00010101000000-000000000000
@@ -20,6 +21,7 @@ require (
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect
 	github.com/labstack/echo/v4 v4.13.3 // indirect
@@ -46,18 +48,20 @@ require (
 	golang.org/x/text v0.37.0 // indirect
 )
 
-replace github.com/upperxcode/ada-llm-client => /home/data/aux/dev/projects/go/ada-llm-client
+replace github.com/upperxcode/ada-llm-client => /home/data/aux/dev/projects/go/ada/ada-llm-client
 
-replace github.com/upperxcode/ada-stream => /home/data/aux/dev/projects/go/ada-stream
+replace github.com/upperxcode/ada-stream => /home/data/aux/dev/projects/go/ada/ada-stream
 
-replace github.com/upperxcode/ada-context => /home/data/aux/dev/projects/go/ada-context
+replace github.com/upperxcode/ada-context => /home/data/aux/dev/projects/go/ada/ada-context
 
-replace github.com/upperxcode/ada-commands => /home/data/aux/dev/projects/go/ada-commands
+replace github.com/upperxcode/ada-commands => /home/data/aux/dev/projects/go/ada/ada-commands
 
-replace github.com/upperxcode/ada-executor => /home/data/aux/dev/projects/go/ada-executor
+replace github.com/upperxcode/ada-executor => /home/data/aux/dev/projects/go/ada/ada-executor
 
-replace github.com/upperxcode/ada-code-indexer => /home/data/aux/dev/projects/go/ada-code-indexer
+replace ada-code-indexer => /home/data/aux/dev/projects/go/ada/ada-code-indexer
 
-replace github.com/ada-love-ai/storage => /home/data/aux/dev/projects/go/ada-storage-module
+replace github.com/ada-love-ai/storage => /home/data/aux/dev/projects/go/ada/ada-storage-module
 
-replace github.com/upperxcode/ada-llm-wiki => /home/data/aux/dev/projects/go/ada-llm-wiki
+replace ada-love-core => /home/data/aux/dev/projects/go/ada/ada-love-core
+
+replace github.com/upperxcode/ada-llm-wiki => /home/data/aux/dev/projects/go/ada/ada-llm-wiki

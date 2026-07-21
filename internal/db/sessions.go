@@ -9,7 +9,7 @@ import (
 	"ada-love-ide/internal/config/agent"
 	"ada-love-ide/internal/config/worker"
 	"ada-love-ide/internal/config/workspace"
-	"ada-love-ide/internal/core"
+	core "ada-love-core"
 
 	storage "github.com/ada-love-ai/storage/storage"
 )
@@ -450,11 +450,44 @@ func (s *Store) SetWorkers(list []worker.WorkerConfig) {
 	}
 
 	// Cleanup: deleta os que não vieram na nova lista
+	// Mas bloqueia se o worker tiver cópias em workspaces
 	for _, e := range existing {
 		if !incomingNames[e.Name] {
+			if s.workerHasCopies(ctx, e.ID) {
+				fmt.Printf("[db] SetWorkers: worker %q has workspace copies, skipping delete\n", e.Name)
+				continue
+			}
 			_ = s.workers.DeleteWorker(ctx, e.ID)
 		}
 	}
+}
+
+func (s *Store) workerHasCopies(ctx context.Context, workerID int64) bool {
+	allWorkspaces, _ := s.workspaces.ListWorkspaces(ctx)
+	for _, ws := range allWorkspaces {
+		links, err := s.workspaceWorkers.ListWorkers(ctx, ws.ID)
+		if err != nil {
+			continue
+		}
+		for _, link := range links {
+			if link.WorkerID == workerID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (s *Store) DeleteWorker(name string) error {
+	ctx := context.Background()
+	raw, err := s.workers.GetWorkerByName(ctx, name)
+	if err != nil {
+		return err
+	}
+	if s.workerHasCopies(ctx, raw.ID) {
+		return fmt.Errorf("worker %q possui cópias em workspaces e não pode ser apagado", name)
+	}
+	return s.workers.DeleteWorker(ctx, raw.ID)
 }
 
 func (s *Store) PutWorker(wc worker.WorkerConfig) {
@@ -489,15 +522,6 @@ func (s *Store) GetWorker(name string) (worker.WorkerConfig, error) {
 		return worker.WorkerConfig{}, err
 	}
 	return adaptWorkerToInternal(raw), nil
-}
-
-func (s *Store) DeleteWorker(name string) error {
-	ctx := context.Background()
-	raw, err := s.workers.GetWorkerByName(ctx, name)
-	if err != nil {
-		return err
-	}
-	return s.workers.DeleteWorker(ctx, raw.ID)
 }
 
 func adaptWorkerToInternal(w *storage.Worker) worker.WorkerConfig {
