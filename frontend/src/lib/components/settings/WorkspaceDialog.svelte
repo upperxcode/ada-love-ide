@@ -59,8 +59,7 @@
 	let toolsOpen = $state(false);
 	let specWizardsOpen = $state(false);
 
-	// ── New item state for folders and knowledge files ──
-	let newFolder = $state('');
+	// ── New item state for knowledge files ──
 	let newKnowledgeFile = $state('');
 
 	// ── Initialize when opening ──
@@ -129,25 +128,21 @@
 		}
 	}
 
-	function addFolder() {
-		if (!newFolder.trim()) return;
-		formData.folders = [...formData.folders, newFolder.trim()];
-		// Auto-derive path from first folder
-		if (formData.folders.length === 1) {
-			formData.path = newFolder.trim();
-		}
-		newFolder = '';
-	}
-
 	function removeFolder(index: number) {
-		formData.folders = formData.folders.filter((_: unknown, idx: number) => idx !== index);
-		// Re-derive path from first folder
-		if (formData.folders.length > 0) {
-			formData.path = formData.folders[0];
-		} else {
-			formData.path = '';
+			formData.folders = formData.folders.filter((_: unknown, idx: number) => idx !== index);
+			// Re-derive path: keep current primary if still present, else first folder
+			if (formData.folders.length > 0) {
+				if (!formData.folders.includes(formData.path)) {
+					formData.path = formData.folders[0];
+				}
+			} else {
+				formData.path = '';
+			}
 		}
-	}
+
+		function setPrimaryFolder(index: number) {
+			formData.path = formData.folders[index];
+		}
 
 	function addKnowledgeFile() {
 		if (!newKnowledgeFile.trim()) return;
@@ -211,8 +206,13 @@ async function handleOpenDirectory() {
 			try {
 				const result = await (window as any).go.main.App.OpenDirectoryDialog();
 				if (result) {
+					// Avoid duplicates
+					if (formData.folders.includes(result)) return;
 					formData.folders = [...formData.folders, result];
-					formData.path = result;
+					// Becomes primary only if none is set yet
+					if (!formData.path) {
+						formData.path = result;
+					}
 				}
 			} catch (e) {
 				console.error('Failed to open directory dialog:', e);
@@ -301,7 +301,10 @@ async function handleOpenFile() {
 								<div class="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
 									<Icon name="folder" size={14} />
 								</div>
-								<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Folders</h3>
+								<div class="flex flex-col">
+									<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Folders</h3>
+									<span class="text-[10px] text-[var(--text-faint)]">Directories in this workspace</span>
+								</div>
 							</div>
 							<Icon
 								name="chevron-down"
@@ -313,50 +316,59 @@ async function handleOpenFile() {
 
 						{#if foldersOpen}
 							<div class="flex flex-col gap-3">
+								<!-- Toolbar: Browse button only -->
+								<div class="flex items-center justify-between gap-2">
+									<span class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">
+										{formData.folders?.length ?? 0} folder{(formData.folders?.length ?? 0) === 1 ? '' : 's'}
+									</span>
+									<button
+										type="button"
+										onclick={handleOpenDirectory}
+										class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.15em] transition-all cursor-pointer bg-[var(--accent-primary)] text-white shadow-lg hover:brightness-110 active:scale-95"
+									>
+										<Icon name="folder-plus" size={12} /> Browse
+									</button>
+								</div>
+
 								{#if formData.folders && formData.folders.length > 0}
-									<div class="flex flex-col gap-2">
-										{#each formData.folders as folder, i}
-											<div class="flex items-center gap-2 rounded-lg bg-[var(--surface-input)] border border-[var(--border-primary)] px-3 py-2">
-												<span class="flex-1 text-sm font-mono text-[var(--text-primary)]">{folder}</span>
+									<div class="flex flex-col gap-1.5">
+										{#each formData.folders as folder, i (folder)}
+											{@const isPrimary = formData.path === folder}
+											<div
+												class="flex items-center gap-2.5 rounded-lg bg-[var(--surface-input)] border px-3 py-2 transition-colors {isPrimary ? 'border-[var(--accent-primary)]/50' : 'border-[var(--border-primary)]'}"
+											>
+												<!-- Primary indicator (clickable) -->
+												<button
+													type="button"
+													onclick={() => setPrimaryFolder(i)}
+													title={isPrimary ? 'Primary (defines path)' : 'Set as primary'}
+													class="flex items-center justify-center w-5 h-5 rounded-full transition-all cursor-pointer shrink-0 {isPrimary ? 'bg-[var(--accent-primary)] text-white shadow-md' : 'bg-transparent border-2 border-[var(--border-primary)] text-transparent hover:border-[var(--accent-primary)]'}"
+												>
+													<Icon name="check" size={11} />
+												</button>
+
+												<span class="flex-1 text-[12px] font-mono text-[var(--text-primary)] truncate" title={folder}>{folder}</span>
+
 												<button
 													type="button"
 													onclick={() => removeFolder(i)}
-													class="text-[var(--text-faint)] hover:text-red-500 p-1 transition-colors cursor-pointer"
+													class="text-[var(--text-faint)] hover:text-red-500 p-1 transition-colors cursor-pointer shrink-0"
+													title="Remove folder"
 												>
 													<Icon name="x" size={14} />
 												</button>
 											</div>
 										{/each}
+										<p class="text-[10px] text-[var(--text-faint)] px-1 pt-0.5">
+											Click the circle to set which folder defines the workspace path.
+										</p>
 									</div>
 								{:else}
-									<div class="py-6 text-center border-2 border-dashed border-[var(--border-primary)] rounded-xl opacity-40">
-										<p class="text-xs uppercase font-bold tracking-widest">No folders selected</p>
+									<div class="py-6 text-center border-2 border-dashed border-[var(--border-primary)] rounded-xl opacity-50">
+										<p class="text-xs uppercase font-bold tracking-widest text-[var(--text-muted)]">No folders selected</p>
+										<p class="text-[10px] text-[var(--text-faint)] mt-1">Click Browse to add directories</p>
 									</div>
 								{/if}
-
-								<div class="flex items-center gap-2">
-									<input
-										type="text"
-										bind:value={newFolder}
-										placeholder="Folder path"
-										class="flex-1 rounded-lg px-3 py-2 text-sm border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]/30"
-									/>
-									<button
-										type="button"
-										disabled={!newFolder.trim()}
-										onclick={addFolder}
-										class="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-[0.2em] transition-all cursor-pointer disabled:opacity-30 {newFolder.trim() ? 'bg-[var(--accent-primary)] text-white shadow-lg hover:brightness-110 active:scale-90' : 'bg-[var(--surface-input)] border border-[var(--border-primary)] text-[var(--text-muted)]'}"
-									>
-										<Icon name="plus" size={12} /> Add
-									</button>
-									<button
-										type="button"
-										onclick={handleOpenDirectory}
-										class="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-[0.2em] transition-all cursor-pointer bg-[var(--surface-input)] border border-[var(--border-primary)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-									>
-										<Icon name="folder-plus" size={12} /> Browse
-									</button>
-								</div>
 							</div>
 						{/if}
 					</div>
