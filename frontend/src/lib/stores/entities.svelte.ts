@@ -1,5 +1,6 @@
 import type { EntityCardData } from '$lib/components/settings/EntityCard.svelte';
 import type { FieldConfig } from '$lib/components/settings/EntityEditDialog.svelte';
+import type { tool } from '../../../wailsjs/go/models';
 
 // ── Spec Wizard option/recommendation shapes (mirror backend specwizardmgr) ──
 interface SpecOption {
@@ -31,7 +32,7 @@ interface WailsApp {
 		SaveWorkspace(ws: any): Promise<void>;
 		DeleteWorkspace(path: string): Promise<void>;
 		GetSpecWizards(): Promise<any[]>;
-		GetAvailableTools(): Promise<any[]>;
+		GetAvailableTools(): Promise<Array<tool.ToolUIInfo>>;
 		SaveSpecWizard(w: any): Promise<void>;
 		DeleteSpecWizard(id: string): Promise<void>;
 		GetExperts(): Promise<any[]>;
@@ -104,25 +105,25 @@ interface SkillConfig {
 }
 
 interface WorkspaceConfig {
-	id: number;
-	title: string;
-	description: string;
-	path: string;
-	folders: string[];
-	personality: string;
-	routing_rules: string;
-	knowledge: string[];
-	worker_names: string[];
-	skills: string[];
-	tools: string[];
-	enabled: boolean;
-	color: string;
-	icon: string;
-	max_prompt_send: number;
-	commit_changes: boolean;
-	max_context_length: number;
-agents: string[];
+		id: number;
+		title: string;
+		description: string;
+		path: string;
+		folders: string[];
+		personality: string;
+		routing_rules: string;
+		knowledge: string[];
+		worker_names: string[];
+		skills: string[];
+		tools: string[];
+		enabled: boolean;
+		color: string;
+		icon: string;
+		max_prompt_send: number;
+		commit_changes: boolean;
+		max_context_length: number;
 		spec_wizard_id?: string;
+		agents: string[];
 	}
 
 	interface SpecWizardConfig {
@@ -153,88 +154,88 @@ interface ProviderConfig {
 
 export const FIELD_CONFIGS: Record<string, FieldConfig[]> = {
 	agents: [
-			{ key: 'name', label: 'Name', description: 'Identifier for this agent', type: 'text', required: true, placeholder: 'Agent name' },
-			{ key: 'description', label: 'Description', description: 'Brief summary of what this agent does', type: 'text', placeholder: 'What does this agent do?' },
-			{ key: 'provider', label: 'Provider', description: 'AI service provider', type: 'provider_select' },
-			{ key: 'model', label: 'Model', description: 'Model identifier to use', type: 'model_select' },
-				{ key: 'type', label: 'Type', description: 'Agent specialization mode', type: 'select', options: [
-					{ label: 'Executor (Code)', value: 'executor' },
-					{ label: 'Delegator (Routing)', value: 'delegator' },
-					{ label: 'Reviewer (Critique)', value: 'reviewer' },
-					{ label: 'Research (Investigation)', value: 'research' },
-				]},
-				{ key: 'temperature', label: 'Temperature', description: 'Creativity level (0 = precise, 2 = creative)', type: 'number', placeholder: '0.7', decimals: true },
-				{ key: 'max_iterations', label: 'Max Iterations', description: 'Maximum reasoning steps per request', type: 'number', placeholder: '10', decimals: false },
-			{ key: 'system_prompt', label: 'System Prompt', description: 'Instructions that define the agent behavior', type: 'textarea', placeholder: 'You are a helpful assistant...', fullWidth: true, expandable: true },
-		],
-		workers: [
-			{ key: 'name', label: 'Name', description: 'Worker identifier', type: 'text', required: true, placeholder: 'Worker name' },
-			{ key: 'persona', label: 'Persona', description: 'Worker behavior instructions', type: 'textarea', placeholder: 'You are a helpful worker...', fullWidth: true, expandable: true },
-			{ key: 'language', label: 'Response Language', description: 'Instruct the model to answer in this language', type: 'select', options: [
-				{ label: 'Português', value: 'portuguese' },
-				{ label: 'English', value: 'english' },
-				{ label: 'Español', value: 'spanish' },
-				{ label: 'Others', value: 'others' },
-			]},
-			{ key: 'connection_type', label: 'Connection Type', description: 'Underlying bridge protocol', type: 'select', options: [
-				{ label: 'Ada', value: 'ada' },
-				{ label: 'CLI', value: 'cli' },
-				{ label: 'Url/Api', value: 'url' },
-			]},
-			{ key: 'inherit_folders', label: 'Inherit Folders', description: 'Inherit workspace file structure', type: 'toggle' },
-			{ key: 'inherit_knowledge', label: 'Inherit Knowledge', description: 'Inherit local knowledge base', type: 'toggle' },
-			{ key: 'inherit_skills', label: 'Inherit Skills', description: 'Inherit system skills/commands', type: 'toggle' },
-			{ key: 'inherit_tools', label: 'Inherit Tools', description: 'Inherit external tool definitions', type: 'toggle' },
-			{ key: 'inherit_persona', label: 'Inherit Persona', description: 'Combine with global persona settings', type: 'toggle' },
-		],
-skills: [
-				{ key: 'name', label: 'Name', description: 'Unique identifier for this skill', type: 'text', required: true, placeholder: 'Skill name' },
-				{ key: 'description', label: 'Description', description: 'Brief summary of what this skill does', type: 'text', placeholder: 'What does this skill do?' },
-				{ key: 'tags', label: 'Tags', description: 'Comma-separated keywords', type: 'text', placeholder: 'comma, separated, tags' },
-				{ key: 'active', label: 'Active', description: 'Whether this skill is enabled', type: 'toggle' },
-				{ key: 'content', label: 'Content', description: 'Core logic/instructions of the skill', type: 'textarea', placeholder: 'Skill prompt/instructions...', fullWidth: true, expandable: true },
-			],
-			// workspaces são editados via WorkspaceDialog.svelte (não via EntityEditDialog)
-			'spec-wizard': [
-			{ key: 'name', label: 'Name', description: 'Wizard identifier', type: 'text', required: true, placeholder: 'Spec Wizard name' },
-			{ key: 'description', label: 'Description', description: 'Detailed instructions for this wizard', type: 'textarea', placeholder: 'What is this spec for?', fullWidth: true, expandable: true },
-		],
-		tools: [
-			{ key: 'name', label: 'Name', description: 'Tool profile identifier', type: 'text', required: true, placeholder: 'Tool profile name' },
-		],
-			models: [
-				{ key: 'name', label: 'Provider Name', description: 'Unique identifier for this provider', type: 'text', required: true, placeholder: 'openai, anthropic, ollama...' },
-				{ key: 'api_url', label: 'API URL', description: 'Base URL for the provider API', type: 'text', placeholder: 'https://api.example.com/v1' },
-				{ key: 'type_connection', label: 'Connection Type', description: 'Underlying protocol/provider', type: 'select', options: [
-					{ label: 'OpenAI Compatible', value: 'openai' },
-					{ label: 'Anthropic', value: 'anthropic' },
-					{ label: 'Ollama', value: 'ollama' },
-					{ label: 'Custom', value: 'custom' },
-				]},
-				{ key: 'strategy', label: 'Rotation Strategy', description: 'How to rotate between multiple API keys', type: 'select', options: [
-					{ label: 'Simple Rotate (Round Robin)', value: 'simple_rotate' },
-					{ label: 'Hard Caps (Quota-based)', value: 'hard_caps' },
-					{ label: 'Load Balancing (Weighted)', value: 'load_balancing' },
-					{ label: 'Tiered Rotation (Priority)', value: 'tiered' },
-					{ label: 'Rate Limit Evasion (429-based)', value: 'rate_limit' },
-				]},
-				{ key: 'api_keys', label: 'API Keys', description: 'Manage multiple keys for rotation', type: 'textarea', fullWidth: true },
-				{ key: 'models', label: 'Models', description: 'List of supported models for this provider', type: 'textarea', fullWidth: true },
-			],
-		mcp: [
-			{ key: 'nome', label: 'Name', description: 'Server identifier', type: 'text', required: true, placeholder: 'My MCP Server' },
-			{ key: 'connect_type', label: 'Connect Type', description: 'Underlying protocol (stdio, sse)', type: 'select', options: [
-				{ label: 'STDIO', value: 'stdio' },
-				{ label: 'SSE', value: 'sse' },
-			]},
-			{ key: 'command', label: 'Command', description: 'Executable command (npx, uvx, node...)', type: 'text', placeholder: 'npx' },
-			{ key: 'arguments', label: 'Arguments', description: 'Command line arguments', type: 'text', placeholder: '-y @mcp-server/example' },
-			{ key: 'url', label: 'URL', description: 'Remote server endpoint (for SSE)', type: 'text', placeholder: 'https://...' },
-			{ key: 'enabled', label: 'Enabled', description: 'Whether this MCP server is active', type: 'toggle' },
-			{ key: 'timeout', label: 'Timeout', description: 'Response timeout in seconds', type: 'number', placeholder: '30' },
-			{ key: 'oauth_client_id', label: 'OAuth Client ID', description: 'Optional OAuth2 client identifier', type: 'text', placeholder: 'client_...' },
-			{ key: 'environment', label: 'Environment', description: 'Custom environment variables (JSON)', type: 'textarea', placeholder: '{"API_KEY": "..."}', fullWidth: true, expandable: true },
-		],
+		{ key: 'name', label: 'Name', description: 'Identifier for this agent', type: 'text', required: true, placeholder: 'Agent name' },
+		{ key: 'description', label: 'Description', description: 'Brief summary of what this agent does', type: 'text', placeholder: 'What does this agent do?' },
+		{ key: 'provider', label: 'Provider', description: 'AI service provider', type: 'provider_select' },
+		{ key: 'model', label: 'Model', description: 'Model identifier to use', type: 'model_select' },
+		{ key: 'type', label: 'Type', description: 'Agent specialization mode', type: 'select', options: [
+			{ label: 'Executor (Code)', value: 'executor' },
+			{ label: 'Delegator (Routing)', value: 'delegator' },
+			{ label: 'Reviewer (Critique)', value: 'reviewer' },
+			{ label: 'Research (Investigation)', value: 'research' },
+		]},
+		{ key: 'temperature', label: 'Temperature', description: 'Creativity level (0 = precise, 2 = creative)', type: 'number', placeholder: '0.7', decimals: true },
+		{ key: 'max_iterations', label: 'Max Iterations', description: 'Maximum reasoning steps per request', type: 'number', placeholder: '10', decimals: false },
+		{ key: 'system_prompt', label: 'System Prompt', description: 'Instructions that define the agent behavior', type: 'textarea', placeholder: 'You are a helpful assistant...', fullWidth: true, expandable: true },
+	],
+	workers: [
+		{ key: 'name', label: 'Name', description: 'Worker identifier', type: 'text', required: true, placeholder: 'Worker name' },
+		{ key: 'persona', label: 'Persona', description: 'Worker behavior instructions', type: 'textarea', placeholder: 'You are a helpful worker...', fullWidth: true, expandable: true },
+		{ key: 'language', label: 'Response Language', description: 'Instruct the model to answer in this language', type: 'select', options: [
+			{ label: 'Português', value: 'portuguese' },
+			{ label: 'English', value: 'english' },
+			{ label: 'Español', value: 'spanish' },
+			{ label: 'Others', value: 'others' },
+		]},
+		{ key: 'connection_type', label: 'Connection Type', description: 'Underlying bridge protocol', type: 'select', options: [
+			{ label: 'Ada', value: 'ada' },
+			{ label: 'CLI', value: 'cli' },
+			{ label: 'Url/Api', value: 'url' },
+		]},
+		{ key: 'inherit_folders', label: 'Inherit Folders', description: 'Inherit workspace file structure', type: 'toggle' },
+		{ key: 'inherit_knowledge', label: 'Inherit Knowledge', description: 'Inherit local knowledge base', type: 'toggle' },
+		{ key: 'inherit_skills', label: 'Inherit Skills', description: 'Inherit system skills/commands', type: 'toggle' },
+		{ key: 'inherit_tools', label: 'Inherit Tools', description: 'Inherit external tool definitions', type: 'toggle' },
+		{ key: 'inherit_persona', label: 'Inherit Persona', description: 'Combine with global persona settings', type: 'toggle' },
+	],
+	skills: [
+		{ key: 'name', label: 'Name', description: 'Unique identifier for this skill', type: 'text', required: true, placeholder: 'Skill name' },
+		{ key: 'description', label: 'Description', description: 'Brief summary of what this skill does', type: 'text', placeholder: 'What does this skill do?' },
+		{ key: 'tags', label: 'Tags', description: 'Comma-separated keywords', type: 'text', placeholder: 'comma, separated, tags' },
+		{ key: 'active', label: 'Active', description: 'Whether this skill is enabled', type: 'toggle' },
+		{ key: 'content', label: 'Content', description: 'Core logic/instructions of the skill', type: 'textarea', placeholder: 'Skill prompt/instructions...', fullWidth: true, expandable: true },
+	],
+	// workspaces: removido - será gerenciado por WorkspaceDialog.svelte (novo componente)
+	'spec-wizard': [
+		{ key: 'name', label: 'Name', description: 'Wizard identifier', type: 'text', required: true, placeholder: 'Spec Wizard name' },
+		{ key: 'description', label: 'Description', description: 'Detailed instructions for this wizard', type: 'textarea', placeholder: 'What is this spec for?', fullWidth: true, expandable: true },
+	],
+	tools: [
+		{ key: 'name', label: 'Name', description: 'Tool profile identifier', type: 'text', required: true, placeholder: 'Tool profile name' },
+	],
+	models: [
+		{ key: 'name', label: 'Provider Name', description: 'Unique identifier for this provider', type: 'text', required: true, placeholder: 'openai, anthropic, ollama...' },
+		{ key: 'api_url', label: 'API URL', description: 'Base URL for the provider API', type: 'text', placeholder: 'https://api.example.com/v1' },
+		{ key: 'type_connection', label: 'Connection Type', description: 'Underlying protocol/provider', type: 'select', options: [
+			{ label: 'OpenAI Compatible', value: 'openai' },
+			{ label: 'Anthropic', value: 'anthropic' },
+			{ label: 'Ollama', value: 'ollama' },
+			{ label: 'Custom', value: 'custom' },
+		]},
+		{ key: 'strategy', label: 'Rotation Strategy', description: 'How to rotate between multiple API keys', type: 'select', options: [
+			{ label: 'Simple Rotate (Round Robin)', value: 'simple_rotate' },
+			{ label: 'Hard Caps (Quota-based)', value: 'hard_caps' },
+			{ label: 'Load Balancing (Weighted)', value: 'load_balancing' },
+			{ label: 'Tiered Rotation (Priority)', value: 'tiered' },
+			{ label: 'Rate Limit Evasion (429-based)', value: 'rate_limit' },
+		]},
+		{ key: 'api_keys', label: 'API Keys', description: 'Manage multiple keys for rotation', type: 'textarea', fullWidth: true },
+		{ key: 'models', label: 'Models', description: 'List of supported models for this provider', type: 'textarea', fullWidth: true },
+	],
+	mcp: [
+		{ key: 'nome', label: 'Name', description: 'Server identifier', type: 'text', required: true, placeholder: 'My MCP Server' },
+		{ key: 'connect_type', label: 'Connect Type', description: 'Underlying protocol (stdio, sse)', type: 'select', options: [
+			{ label: 'STDIO', value: 'stdio' },
+			{ label: 'SSE', value: 'sse' },
+		]},
+		{ key: 'command', label: 'Command', description: 'Executable command (npx, uvx, node...)', type: 'text', placeholder: 'npx' },
+		{ key: 'arguments', label: 'Arguments', description: 'Command line arguments', type: 'text', placeholder: '-y @mcp-server/example' },
+		{ key: 'url', label: 'URL', description: 'Remote server endpoint (for SSE)', type: 'text', placeholder: 'https://...' },
+		{ key: 'enabled', label: 'Enabled', description: 'Whether this MCP server is active', type: 'toggle' },
+		{ key: 'timeout', label: 'Timeout', description: 'Response timeout in seconds', type: 'number', placeholder: '30' },
+		{ key: 'oauth_client_id', label: 'OAuth Client ID', description: 'Optional OAuth2 client identifier', type: 'text', placeholder: 'client_...' },
+		{ key: 'environment', label: 'Environment', description: 'Custom environment variables (JSON)', type: 'textarea', placeholder: '{"API_KEY": "..."}', fullWidth: true, expandable: true },
+	],
 };
 
 // ── Map any backend entity to EntityCardData ──
