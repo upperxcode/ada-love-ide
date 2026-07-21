@@ -207,28 +207,28 @@
 		formData.spec_wizards = formData.spec_wizards.filter((_: unknown, idx: number) => idx !== index);
 	}
 
-	async function handleOpenDirectory() {
-		try {
-			const result = await (window as any).go.main.App.OpenDirectoryDialog();
-			if (result && result.path) {
-				formData.folders = [...formData.folders, result.path];
-				formData.path = result.path;
+async function handleOpenDirectory() {
+			try {
+				const result = await (window as any).go.main.App.OpenDirectoryDialog();
+				if (result) {
+					formData.folders = [...formData.folders, result];
+					formData.path = result;
+				}
+			} catch (e) {
+				console.error('Failed to open directory dialog:', e);
 			}
-		} catch (e) {
-			console.error('Failed to open directory dialog:', e);
 		}
-	}
 
-	async function handleOpenFile() {
-		try {
-			const result = await (window as any).go.main.App.OpenFileDialog();
-			if (result && result.path) {
-				formData.knowledge_files = [...formData.knowledge_files, result.path];
+async function handleOpenFile() {
+			try {
+				const result = await (window as any).go.main.App.OpenFileDialog();
+				if (result) {
+					formData.knowledge_files = [...formData.knowledge_files, result];
+				}
+			} catch (e) {
+				console.error('Failed to open file dialog:', e);
 			}
-		} catch (e) {
-			console.error('Failed to open file dialog:', e);
 		}
-	}
 
 	function handleSave() {
 		// Force enabled = true
@@ -245,10 +245,10 @@
 <Dialog bind:open onOpenChange={onOpenChange}>
 	<DialogPortal>
 		<DialogOverlay class="z-[60] bg-black/40 backdrop-blur-sm" />
-		<DialogContent
-			class="z-[70] sm:max-w-[800px] w-[95vw] h-[90dvh] p-0 overflow-hidden flex flex-col bg-[var(--bg-tertiary)] rounded-2xl border border-[var(--border-primary)] shadow-2xl"
-			showCloseButton={false}
-		>
+<DialogContent
+				class="z-[70] sm:max-w-[720px] w-[95vw] h-[90dvh] p-0 overflow-hidden flex flex-col bg-[var(--bg-tertiary)] rounded-2xl border border-[var(--border-primary)] shadow-2xl"
+				showCloseButton={false}
+			>
 			<EntityHeader
 				icon={formData.icon}
 				color={formData.color}
@@ -262,33 +262,33 @@
 			<!-- ── Form Content ── -->
 			<div class="flex-1 overflow-y-auto px-10 py-8 bg-[var(--bg-tertiary)]">
 				<div class="flex flex-col gap-6">
-					<!-- Field 1: Name -->
-					<SettingRow label="Name" required>
-						<input
-							bind:value={formData.name}
-							placeholder="Workspace name"
-							class="w-full rounded-lg px-4 py-3 text-[14px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
-						/>
-					</SettingRow>
+<!-- Field 1: Name -->
+						<SettingRow label="Name" description="Display name of the workspace" required>
+							<input
+								bind:value={formData.name}
+								placeholder="Workspace name"
+								class="w-full rounded-lg px-4 py-3 text-[14px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
+							/>
+						</SettingRow>
 
-					<!-- Field 2: Description -->
-					<SettingRow label="Description">
-						<input
-							bind:value={formData.description}
-							placeholder="Brief description of the workspace..."
-							class="w-full rounded-lg px-4 py-3 text-[14px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
-						/>
-					</SettingRow>
+						<!-- Field 2: Description -->
+						<SettingRow label="Description" description="Brief summary of the workspace">
+							<input
+								bind:value={formData.description}
+								placeholder="Brief description of the workspace..."
+								class="w-full rounded-lg px-4 py-3 text-[14px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
+							/>
+						</SettingRow>
 
-					<!-- Field 3: Path (auto-derived) -->
-					<SettingRow label="Path" helpText="Auto-derived from first folder">
-						<input
-							bind:value={formData.path}
-							placeholder="/path/to/workspace"
-							class="w-full rounded-lg px-4 py-3 text-[14px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
-							readonly
-						/>
-					</SettingRow>
+						<!-- Field 3: Path (auto-derived) -->
+						<SettingRow label="Path" description="Auto-derived from first folder">
+							<input
+								bind:value={formData.path}
+								placeholder="/path/to/workspace"
+								class="w-full rounded-lg px-4 py-3 text-[14px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)] cursor-not-allowed"
+								readOnly
+							/>
+						</SettingRow>
 
 					<!-- Field 4: Folders (Collapsible) -->
 					<div class="mt-4 border-t border-[var(--border-primary)] pt-6 flex flex-col gap-4">
