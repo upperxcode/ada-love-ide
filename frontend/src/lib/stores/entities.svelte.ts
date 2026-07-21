@@ -31,6 +31,7 @@ interface WailsApp {
 		SaveWorkspace(ws: any): Promise<void>;
 		DeleteWorkspace(path: string): Promise<void>;
 		GetSpecWizards(): Promise<any[]>;
+		GetAvailableTools(): Promise<any[]>;
 		SaveSpecWizard(w: any): Promise<void>;
 		DeleteSpecWizard(id: string): Promise<void>;
 		GetExperts(): Promise<any[]>;
@@ -120,10 +121,11 @@ interface WorkspaceConfig {
 	max_prompt_send: number;
 	commit_changes: boolean;
 	max_context_length: number;
-	agents: string[];
-}
+agents: string[];
+		spec_wizard_id?: string;
+	}
 
-interface SpecWizardConfig {
+	interface SpecWizardConfig {
 	id: string;
 	name: string;
 	description: string;
@@ -185,21 +187,15 @@ export const FIELD_CONFIGS: Record<string, FieldConfig[]> = {
 			{ key: 'inherit_tools', label: 'Inherit Tools', description: 'Inherit external tool definitions', type: 'toggle' },
 			{ key: 'inherit_persona', label: 'Inherit Persona', description: 'Combine with global persona settings', type: 'toggle' },
 		],
-		skills: [
-			{ key: 'name', label: 'Name', description: 'Unique identifier for this skill', type: 'text', required: true, placeholder: 'Skill name' },
-			{ key: 'description', label: 'Description', description: 'Brief summary of what this skill does', type: 'text', placeholder: 'What does this skill do?' },
-			{ key: 'tags', label: 'Tags', description: 'Comma-separated keywords', type: 'text', placeholder: 'comma, separated, tags' },
-			{ key: 'active', label: 'Active', description: 'Whether this skill is enabled', type: 'toggle' },
-			{ key: 'content', label: 'Content', description: 'Core logic/instructions of the skill', type: 'textarea', placeholder: 'Skill prompt/instructions...', fullWidth: true, expandable: true },
-		],
-		workspaces: [
-			{ key: 'title', label: 'Title', description: 'Display name of the workspace', type: 'text', required: true, placeholder: 'Workspace title' },
-			{ key: 'path', label: 'Path', description: 'Local filesystem path', type: 'text', placeholder: '/path/to/project' },
-			{ key: 'description', label: 'Description', description: 'Brief summary of the project', type: 'text', placeholder: 'Workspace description' },
-			{ key: 'personality', label: 'Personality', description: 'Custom traits for AI in this context', type: 'textarea', placeholder: 'AI personality traits', fullWidth: true, expandable: true },
-			{ key: 'enabled', label: 'Enabled', description: 'Enable or disable this workspace', type: 'toggle' },
-		],
-		'spec-wizard': [
+skills: [
+				{ key: 'name', label: 'Name', description: 'Unique identifier for this skill', type: 'text', required: true, placeholder: 'Skill name' },
+				{ key: 'description', label: 'Description', description: 'Brief summary of what this skill does', type: 'text', placeholder: 'What does this skill do?' },
+				{ key: 'tags', label: 'Tags', description: 'Comma-separated keywords', type: 'text', placeholder: 'comma, separated, tags' },
+				{ key: 'active', label: 'Active', description: 'Whether this skill is enabled', type: 'toggle' },
+				{ key: 'content', label: 'Content', description: 'Core logic/instructions of the skill', type: 'textarea', placeholder: 'Skill prompt/instructions...', fullWidth: true, expandable: true },
+			],
+			// workspaces são editados via WorkspaceDialog.svelte (não via EntityEditDialog)
+			'spec-wizard': [
 			{ key: 'name', label: 'Name', description: 'Wizard identifier', type: 'text', required: true, placeholder: 'Spec Wizard name' },
 			{ key: 'description', label: 'Description', description: 'Detailed instructions for this wizard', type: 'textarea', placeholder: 'What is this spec for?', fullWidth: true, expandable: true },
 		],
