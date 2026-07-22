@@ -645,25 +645,6 @@ func (s *Store) SetAgents(list []agent.AgentConfig) error {
 	return nil
 }
 
-// ── Tools ──────────────────────────────────────────────────────
-
-type ToolInfo struct {
-	Name        string
-	Description string
-	Category    string
-	Enabled     bool
-}
-
-func (s *Store) AvailableTools() []ToolInfo {
-	return []ToolInfo{
-		{"read", "Lê conteúdo", "io", true},
-		{"write", "Escreve conteúdo", "io", true},
-		{"search", "Busca arquivos", "fs", true},
-		{"exec", "Executa comando", "shell", false},
-		{"plan", "Planeja mudanças", "agent", true},
-	}
-}
-
 // ── Skills ───────────────────────────────────────────────────────
 
 // skillState stores the customization fields for skills (Color, Icon, Active)

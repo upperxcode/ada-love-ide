@@ -3,6 +3,8 @@
 	import Sidebar from './Sidebar.svelte';
 	import ChatPanel from './ChatPanel.svelte';
 	import SettingsPanel from '../settings/SettingsPanel.svelte';
+	import LogPanel from './LogPanel.svelte';
+	import GitPanel from '../git/GitPanel.svelte';
 
 	interface ChatLayoutProps {
 		class?: string;
@@ -12,6 +14,8 @@
 
 	let sidebarOpen = $state(true);
 	let settingsOpen = $state(false);
+	let logsOpen = $state(false);
+	let gitOpen = $state(false);
 	let activeWorkspace = $state('');
 	let activeSessionID = $state('');
 	let settingsCategory = $state<string>('general');
@@ -37,6 +41,16 @@
 		}
 		sidebarOpen = !sidebarOpen;
 	}
+
+	function toggleLogs() {
+		logsOpen = !logsOpen;
+		gitOpen = false;
+	}
+
+	function toggleGit() {
+		gitOpen = !gitOpen;
+		logsOpen = false;
+	}
 </script>
 
 <div
@@ -52,6 +66,8 @@
 			onOpenSettings={() => openSettings()}
 			onNewWorkspace={() => openSettings('workspaces')}
 			onEditWorkspace={(ws) => openSettings('workspaces', ws)}
+			onOpenLogs={toggleLogs}
+			onOpenGit={toggleGit}
 			bind:activeWorkspace
 			bind:activeSessionID
 		/>
@@ -71,4 +87,12 @@
 		bind:activeSessionID
 		onToggleSidebar={toggleSidebar}
 	/>
+
+	{#if logsOpen}
+		<LogPanel onClose={() => logsOpen = false} />
+	{/if}
+
+	{#if gitOpen}
+		<GitPanel onClose={() => gitOpen = false} {activeWorkspace} />
+	{/if}
 </div>

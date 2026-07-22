@@ -2,10 +2,12 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"ada-love-ide/internal/adapters"
 	core "ada-love-core"
@@ -21,18 +23,19 @@ type Emitter interface {
 }
 
 // FrontendEmitter is a placeholder for emitting events to the frontend via Wails runtime.
-type FrontendEmitter struct {
+type WailsEmitter struct {
 	// In a real app, this would hold a reference to Wails runtime.EventsEmit
 }
 
-// NewFrontendEmitter creates a new instance of FrontendEmitter.
-func NewFrontendEmitter() *FrontendEmitter {
-	return &FrontendEmitter{}
+// NewWailsEmitter creates a new instance of WailsEmitter.
+func NewWailsEmitter() *WailsEmitter {
+	return &WailsEmitter{}
 }
 
 // Emit implements the chat.Emitter interface.
-func (fe *FrontendEmitter) Emit(event string, data ...interface{}) {
-	// Simulate sending to frontend via Wails runtime.
+func (we *WailsEmitter) Emit(event string, data ...interface{}) {
+	// In a Wails app, this would call: runtime.EventsEmit(runtime.Context(), event, data...)
+	fmt.Printf("[DEBUG WailsEmitter] event=%s, data=%v\n", event, data)
 	// In a real Wails app, you'd use something like:
 	// runtime.EventsEmit(runtime.Context(), event, data...)
 	fmt.Printf("[FrontendEmitter] Emitting event: %s, data: %v\n", event, data)
@@ -67,15 +70,40 @@ type Chat struct {
 	orch            *core.Orchestrator
 	emitter         Emitter // This will be our FrontendEmitter
 	streamingClient adapters.LLMStreamingClient
+	permStore       *PermissionStore
+	systemPrompt    string
 
 	mu       sync.Mutex
 	cancelFn map[string]context.CancelFunc
 	pending  map[string]*pendingStream // accumulated response per session
 }
 
+func (c *Chat) SetPermissionStore(ps *PermissionStore) {
+	c.permStore = ps
+}
+
+func (c *Chat) SetSystemPrompt(prompt string) {
+	c.systemPrompt = prompt
+}
+
+func (c *Chat) RespondPermission(requestID, decision string) {
+	if c.permStore == nil {
+		return
+	}
+	c.permStore.SendDecision(requestID, decision)
+}
+
+type ThinkingSection struct {
+	Type    string `json:"type"`
+	Content string `json:"content"`
+}
+
 type pendingStream struct {
-	userInput string
-	response  strings.Builder
+	userInput        string
+	response         strings.Builder
+	thinkingContent  strings.Builder
+	thinkingSections []ThinkingSection
+	lastThinkingType string
 }
 
 // New creates a new Chat instance.
@@ -209,6 +237,19 @@ func (c *Chat) Send(ctx context.Context, sessionID, text, model, thinking, mode 
 
 		c.streamingClient.SetEmitter(stream.EventEmitter(emitter))
 
+		cfg := GetModeConfig(ChatMode(mode))
+		c.streamingClient.SetMode(mode)
+		if c.systemPrompt != "" {
+			c.streamingClient.SetSystemPrompt(c.systemPrompt)
+		} else {
+			c.streamingClient.SetSystemPrompt(cfg.SystemPrompt)
+		}
+
+		if c.permStore != nil {
+			permGuard := c.permStore.MakeGuard(ctx, sessionID, ChatMode(mode), c.emitter)
+			c.streamingClient.SetPermissionGuard(permGuard)
+		}
+
 		err := c.streamingClient.GenerateStream(ctx, sessionID, prompt, model)
 		if err != nil {
 			fmt.Printf("[Chat.Send] GenerateStream ERROR: %v\n", err)
@@ -278,12 +319,71 @@ func (c *Chat) handleStreamEvent(sessionID, eventName string, data ...interface{
 		c.mu.Unlock()
 		if ok {
 			c.orch.SaveMessages(sessionID, p.userInput, p.response.String())
+			if rawThinking := strings.TrimSpace(p.thinkingContent.String()); rawThinking != "" {
+				var content string
+				if len(p.thinkingSections) > 0 {
+					payload := map[string]any{
+						"text":     rawThinking,
+						"sections": p.thinkingSections,
+					}
+					if b, err := json.Marshal(payload); err == nil {
+						content = string(b)
+					}
+				}
+				if content == "" {
+					content = rawThinking
+				}
+				msg := core.Message{
+					ID:        fmt.Sprintf("%d-think", time.Now().UnixNano()),
+					SessionID: sessionID,
+					Role:      "thinking",
+					Content:   content,
+					CreatedAt: time.Now().Format(time.RFC3339),
+				}
+				if c.orch.Storage != nil {
+					_ = c.orch.Storage.SaveMessage(msg)
+				}
+			}
+		}
+		if c.permStore != nil {
+			c.permStore.ClearSessionGrants(sessionID)
 		}
 		c.emitter.Emit("chat:turnEnd", map[string]any{"session_id": sessionID})
+	case "reasoning-received":
+		if len(data) > 0 {
+			if m, ok := data[0].(map[string]interface{}); ok {
+				if reasoning, ok := m["reasoning"].(string); ok && reasoning != "" {
+					evt := map[string]any{
+						"session_id": sessionID,
+						"content":    reasoning,
+					}
+					sectionType := "text"
+					if t, ok := m["type"].(string); ok {
+						evt["type"] = t
+						sectionType = t
+					}
+					c.emitter.Emit("chat:thinking", evt)
+					c.mu.Lock()
+					if p, ok := c.pending[sessionID]; ok {
+						p.thinkingContent.WriteString(reasoning)
+						if p.lastThinkingType != sectionType || len(p.thinkingSections) == 0 {
+							p.thinkingSections = append(p.thinkingSections, ThinkingSection{Type: sectionType, Content: reasoning})
+							p.lastThinkingType = sectionType
+						} else {
+							p.thinkingSections[len(p.thinkingSections)-1].Content += reasoning
+						}
+					}
+					c.mu.Unlock()
+				}
+			}
+		}
 	case "stream-interrupted":
 		c.mu.Lock()
 		delete(c.pending, sessionID)
 		c.mu.Unlock()
+		if c.permStore != nil {
+			c.permStore.ClearSessionGrants(sessionID)
+		}
 		c.emitter.Emit("chat:status", map[string]any{
 			"session_id": sessionID,
 			"stage":      "interrupted",

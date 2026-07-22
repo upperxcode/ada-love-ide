@@ -3,6 +3,8 @@
 package sessionstore
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"time"
@@ -50,11 +52,7 @@ func (s *Saver) CreateSummarized(workspaceID, workerName, sourceSessionID string
 }
 
 func randID() string {
-	const hex = "0123456789abcdef"
-	b := make([]byte, 6)
-	t := time.Now().UnixNano()
-	for i := range b {
-		b[i] = hex[(t>>(uint(i)*4))&0xf]
-	}
-	return string(b)
+	b := make([]byte, 8)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }

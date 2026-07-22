@@ -24,21 +24,35 @@
 			label: fs.name,
 		}))
 	);
+
+	const styleThemeOptions = $derived(
+		theme.availableStyleThemes.map((st) => ({
+			value: st.id,
+			label: st.name,
+			description: st.description,
+		}))
+	);
 </script>
 
 <div class="flex flex-col gap-3 p-4 overflow-y-auto flex-1">
 
 	<!-- ═══════════════════════════════════════════════════════════════
-	     Card: Appearance
+	     Card: System (app-wide theming)
 	     ═══════════════════════════════════════════════════════════════ -->
 	<div class="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] overflow-hidden">
+		<div class="px-4 py-3 border-b border-[var(--border-primary)] flex items-center gap-2">
+			<div class="flex items-center justify-center w-5 h-5 rounded" style="background-color: var(--accent-primary); color: var(--accent-primary-fg)">
+				<Icon name="monitor" size={12} />
+			</div>
+			<h4 class="text-xs font-semibold tracking-wider" style="color: var(--text-secondary)">SYSTEM</h4>
+		</div>
 		<div class="divide-y divide-[var(--border-primary)]">
 
 			<!-- Row: Color Theme -->
 			<div class="px-4">
 				<SettingRow
 					label="Color Theme"
-					description="Choose the base color palette for the interface"
+					description="Base color palette for the entire interface"
 				>
 					<ThemedSelect
 						value={theme.colorThemeId}
@@ -137,6 +151,83 @@
 				</SettingRow>
 			</div>
 
+			<!-- Row: Style Theme -->
+			<div class="px-4">
+				<SettingRow
+					label="Style Theme"
+					description="Controls visual style: border radius, shadows, and overall shape"
+				>
+					<ThemedSelect
+						value={theme.styleThemeId}
+						onValueChange={(v) => theme.setStyleTheme(v)}
+						options={styleThemeOptions}
+						placeholder="Select style"
+						class="w-36"
+					/>
+				</SettingRow>
+			</div>
+
+		</div>
+	</div>
+
+	<!-- ═══════════════════════════════════════════════════════════════
+	     Card: Chat (chat-specific theming)
+	     ═══════════════════════════════════════════════════════════════ -->
+	<div class="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] overflow-hidden">
+		<div class="px-4 py-3 border-b border-[var(--border-primary)] flex items-center gap-2">
+			<div class="flex items-center justify-center w-5 h-5 rounded" style="background-color: var(--accent-primary); color: var(--accent-primary-fg)">
+				<Icon name="messageSquare" size={12} />
+			</div>
+			<h4 class="text-xs font-semibold tracking-wider" style="color: var(--text-secondary)">CHAT</h4>
+		</div>
+		<div class="divide-y divide-[var(--border-primary)]">
+			<!-- Row: Chat Color Theme -->
+			<div class="px-4">
+				<SettingRow
+					label="Color Theme"
+					description="Color palette exclusive to the chat area"
+				>
+					<ThemedSelect
+						value={theme.chatColorThemeId}
+						onValueChange={(v) => theme.setChatColorTheme(v)}
+						options={colorThemeOptions}
+						placeholder="Select theme"
+						class="w-36"
+					/>
+				</SettingRow>
+			</div>
+
+			<!-- Row: Chat Font Theme -->
+			<div class="px-4">
+				<SettingRow
+					label="Font Theme"
+					description="Typeface used only inside the chat area"
+				>
+					<ThemedSelect
+						value={theme.chatFontThemeId}
+						onValueChange={(v) => theme.setChatFontTheme(v)}
+						options={fontThemeOptions}
+						placeholder="Select font"
+						class="w-36"
+					/>
+				</SettingRow>
+			</div>
+
+			<!-- Row: Chat Font Size -->
+			<div class="px-4">
+				<SettingRow
+					label="Font Size"
+					description="Text size used only inside the chat area"
+				>
+					<ThemedSelect
+						value={theme.chatFontSizeId}
+						onValueChange={(v) => theme.setChatFontSize(v)}
+						options={fontSizeOptions}
+						placeholder="Select size"
+						class="w-36"
+					/>
+				</SettingRow>
+			</div>
 		</div>
 	</div>
 

@@ -218,6 +218,58 @@ export function GetWorkspaces() {
   return window['go']['main']['App']['GetWorkspaces']();
 }
 
+export function GitAdd(arg1, arg2) {
+  return window['go']['main']['App']['GitAdd'](arg1, arg2);
+}
+
+export function GitBranchCheckout(arg1, arg2) {
+  return window['go']['main']['App']['GitBranchCheckout'](arg1, arg2);
+}
+
+export function GitBranchCreate(arg1, arg2) {
+  return window['go']['main']['App']['GitBranchCreate'](arg1, arg2);
+}
+
+export function GitBranchList(arg1) {
+  return window['go']['main']['App']['GitBranchList'](arg1);
+}
+
+export function GitCommit(arg1, arg2) {
+  return window['go']['main']['App']['GitCommit'](arg1, arg2);
+}
+
+export function GitDiff(arg1) {
+  return window['go']['main']['App']['GitDiff'](arg1);
+}
+
+export function GitInit(arg1) {
+  return window['go']['main']['App']['GitInit'](arg1);
+}
+
+export function GitLog(arg1, arg2) {
+  return window['go']['main']['App']['GitLog'](arg1, arg2);
+}
+
+export function GitPull(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['GitPull'](arg1, arg2, arg3, arg4);
+}
+
+export function GitPush(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['GitPush'](arg1, arg2, arg3, arg4);
+}
+
+export function GitRemoteAdd(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GitRemoteAdd'](arg1, arg2, arg3);
+}
+
+export function GitRemoteList(arg1) {
+  return window['go']['main']['App']['GitRemoteList'](arg1);
+}
+
+export function GitStatus(arg1) {
+  return window['go']['main']['App']['GitStatus'](arg1);
+}
+
 export function InferField(arg1, arg2) {
   return window['go']['main']['App']['InferField'](arg1, arg2);
 }
@@ -272,6 +324,10 @@ export function RemoveWorkerFromWorkspace(arg1, arg2) {
 
 export function RenameSession(arg1, arg2) {
   return window['go']['main']['App']['RenameSession'](arg1, arg2);
+}
+
+export function RespondPermission(arg1, arg2) {
+  return window['go']['main']['App']['RespondPermission'](arg1, arg2);
 }
 
 export function RetryMessage(arg1, arg2) {

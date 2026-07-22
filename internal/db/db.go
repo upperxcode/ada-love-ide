@@ -116,6 +116,10 @@ func (s *Store) Mcps() *storage.McpStore { return s.mcps }
 
 func (s *Store) FixedModels() *storage.FixedModelStore { return s.fixedModels }
 
+func (s *Store) Models() *storage.ProviderModelStore { return s.models }
+
+func (s *Store) Providers() *storage.ProviderStore { return s.providers }
+
 func (s *Store) WorkspaceStore() *storage.WorkspaceStore { return s.workspaces }
 
 func (s *Store) WorkerStore() *storage.WorkerStore { return s.workers }

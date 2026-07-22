@@ -23,8 +23,8 @@ func (a *App) SendMessage(sessionID, text, modelOverride, thinkingLevel, mode st
 	// Resolve context size from session's model (modelOverride = "provider/model")
 	ctxSize := 0
 	if modelOverride != "" {
-		if ms, ok := a.eng.GetModelSettings(modelOverride); ok && ms.ContextSize > 0 {
-			ctxSize = ms.ContextSize
+		if cs, ok := a.eng.GetModelSettings(modelOverride); ok && cs > 0 {
+			ctxSize = cs
 		}
 	}
 
@@ -50,6 +50,14 @@ func (a *App) AnswerQuestion(sessionID, answer string) error {
 // AnswerApproval aprova/rejeita uso de ferramenta. Mock: noop.
 func (a *App) AnswerApproval(requestID string, approved bool, reason string) error {
 	return nil
+}
+
+// RespondPermission processa a resposta do usuário a um pedido de permissão.
+func (a *App) RespondPermission(requestID, decision string) {
+	if a.eng.Chat == nil {
+		return
+	}
+	a.eng.Chat.RespondPermission(requestID, decision)
 }
 
 // StopGeneration interrompe geração em andamento.

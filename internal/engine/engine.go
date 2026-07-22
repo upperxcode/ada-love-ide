@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -13,7 +14,6 @@ import (
 	"ada-love-ide/internal/chat"
 	"ada-love-ide/internal/commands"
 	"ada-love-ide/internal/configfile"
-	"ada-love-ide/internal/config/provider"
 	core "ada-love-core"
 	"ada-love-ide/internal/db"
 	"ada-love-ide/internal/icons"
@@ -23,8 +23,11 @@ import (
 	"ada-love-ide/internal/sessionstore"
 	"ada-love-ide/internal/skillmanager"
 	"ada-love-ide/internal/specwizardmgr"
+	adaGit "ada-git"
 
 	llm "github.com/upperxcode/ada-llm-client"
+	adatools "github.com/upperxcode/ada-tools"
+	adatoolstools "github.com/upperxcode/ada-tools/tools"
 	codeIndexer "ada-code-indexer/core"
 	codeIndexerStore "ada-code-indexer/storage"
 	adaCommands "github.com/upperxcode/ada-commands"
@@ -48,6 +51,8 @@ type Engine struct {
 	Executor     *executor.TaskExecutor
 	WorkspaceDir string
 	CodeIndexer  *codeIndexerStore.Store
+	ToolRegistry *adatools.Registry
+	Git          *adaGit.GitService
 
 	ctx context.Context
 }
@@ -112,23 +117,37 @@ func New() (*Engine, error) {
 		}
 	}
 
-	frontendEmitter := chat.NewFrontendEmitter() // Create it once
+	frontendEmitter := chat.NewWailsEmitter() // Create it once
 
+	// Tool registry
+	toolReg := adatools.New()
+	toolReg.Register(&adatoolstools.ReadFile{})
+	toolReg.Register(&adatoolstools.WriteFile{})
+	toolReg.Register(&adatoolstools.Search{})
+	toolReg.Register(&adatoolstools.Exec{})
+	toolReg.Register(&adatoolstools.Plan{})
+
+	var llmAdapter *adapters.MultiLLMAdapter
 	if len(validProviders) > 0 {
-		// Define the adapter function to bridge chat.Emitter to stream.EventEmitter
 		streamEmitterAdapter := func(eventName string, optionalData ...interface{}) {
-			frontendEmitter.Emit(eventName, optionalData...) // Use the created frontendEmitter
+			frontendEmitter.Emit(eventName, optionalData...)
 		}
-
-		llmAdapter := adapters.NewMultiLLMAdapterWithEmitter(validProviders, defaultModel, streamEmitterAdapter)
-		llmAdapter.SetTools(buildToolDefs(store))
+		llmAdapter = adapters.NewMultiLLMAdapterWithEmitter(validProviders, defaultModel, streamEmitterAdapter)
+		llmAdapter.SetTools(toLLMToolDefs(toolReg))
+		llmAdapter.SetOnModelError(func(providerName, modelID string, err error) {
+			ctx := context.Background()
+			p, err := store.Providers().GetProviderByName(ctx, providerName)
+			if err != nil {
+				return
+			}
+			_ = store.Models().UpdateModelHealth(ctx, p.ID, modelID, 0)
+		})
 		llmClient = llmAdapter
 		streamingClient = llmAdapter
-
 		fmt.Printf("[Engine] Using MultiLLMAdapter with providers: %v, default: %s\n", len(validProviders), defaultModel)
 	} else {
 		fmt.Println("[Engine] WARNING: No providers configured - chat will not work")
-		llmAdapter := adapters.NewMultiLLMAdapterWithEmitter(nil, "", nil)
+		llmAdapter = adapters.NewMultiLLMAdapterWithEmitter(nil, "", nil)
 		llmClient = llmAdapter
 		streamingClient = llmAdapter
 	}
@@ -187,6 +206,84 @@ func New() (*Engine, error) {
 		router.Register(commands.NewPlanCommand(taskExecutor, workspaceDir))
 	}
 
+	// Tool handler — must be set after taskExecutor and workspaceDir are resolved
+	llmAdapter.SetToolHandler(func(ctx context.Context, name, argsJSON string) (string, error) {
+		var args map[string]any
+		if argsJSON != "" {
+			if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+				return "", fmt.Errorf("tool %q: invalid args: %w", name, err)
+			}
+		}
+		switch name {
+		case "read":
+			path, _ := args["path"].(string)
+			if path == "" {
+				return "", fmt.Errorf("path is required")
+			}
+			if taskExecutor == nil {
+				return "", fmt.Errorf("executor not available")
+			}
+			data, err := taskExecutor.ReadFile(ctx, path)
+			if err != nil {
+				return "", err
+			}
+			return string(data), nil
+
+		case "write":
+			path, _ := args["path"].(string)
+			content, _ := args["content"].(string)
+			if path == "" {
+				return "", fmt.Errorf("path is required")
+			}
+			if taskExecutor == nil {
+				return "", fmt.Errorf("executor not available")
+			}
+			_, err := taskExecutor.WriteFile(ctx, path, []byte(content))
+			if err != nil {
+				return "", err
+			}
+			return fmt.Sprintf("File written: %s (%d bytes)", path, len(content)), nil
+
+		case "search":
+			query, _ := args["query"].(string)
+			if query == "" {
+				return "", fmt.Errorf("query is required")
+			}
+			if taskExecutor == nil {
+				return "", fmt.Errorf("executor not available")
+			}
+			result, err := taskExecutor.ExecuteCommand(ctx, workspaceDir, "grep", []string{"-r", "-l", query, "."})
+			if err != nil {
+				return "", err
+			}
+			return result.Stdout, nil
+
+		case "exec":
+			cmd, _ := args["command"].(string)
+			if cmd == "" {
+				return "", fmt.Errorf("command is required")
+			}
+			if taskExecutor == nil {
+				return "", fmt.Errorf("executor not available")
+			}
+			result, err := taskExecutor.ExecuteCommand(ctx, workspaceDir, "sh", []string{"-c", cmd})
+			if err != nil {
+				return "", err
+			}
+			return result.Stdout, nil
+
+		case "plan":
+			task, _ := args["task"].(string)
+			if task == "" {
+				return "", fmt.Errorf("task is required")
+			}
+			return fmt.Sprintf("Plan for: %s", task), nil
+
+		default:
+			return "", fmt.Errorf("unknown tool: %s", name)
+		}
+	})
+
 	realExecutor := adapters.NewExecutorAdapter(router)
 	orch := core.NewOrchestrator(adapter, llmClient, compactor, realExecutor)
 
@@ -204,6 +301,9 @@ func New() (*Engine, error) {
 	if streamingClient != nil {
 		ch.SetStreamingClient(streamingClient)
 	}
+
+	permStore := chat.NewPermissionStore(nil)
+	ch.SetPermissionStore(permStore)
 
 	home2, _ := os.UserHomeDir()
 	skillsDir := filepath.Join(home2, ".opencode", "skills")
@@ -230,14 +330,18 @@ func New() (*Engine, error) {
 		layers.WriteString("=== WORKSPACE ===\n")
 		layers.WriteString("You have read/write access to the following directory:\n")
 		layers.WriteString(wsDir)
-		layers.WriteString("\n\n")
+		layers.WriteString("\n")
+		layers.WriteString("Instructions: Create files directly in this directory.\n")
+		layers.WriteString("Do NOT create subdirectories for the project unless explicitly requested.\n\n")
 
-		// .AGENTS.md
-		agentsPath := filepath.Join(wsDir, ".AGENTS.md")
-		if data, err := os.ReadFile(agentsPath); err == nil && len(data) > 0 {
-			layers.WriteString("=== ARCHITECTURAL GOLDEN RULES ===\n")
-			layers.Write(data)
-			layers.WriteString("\n")
+		// Golden rules (AGENT.md > .AGENT.md > .AGENTS.md > ...)
+		agentsPath, _ := findAgentsFile(wsDir)
+		if agentsPath != "" {
+			if data, err := os.ReadFile(agentsPath); err == nil && len(data) > 0 {
+				layers.WriteString("=== ARCHITECTURAL GOLDEN RULES ===\n")
+				layers.Write(data)
+				layers.WriteString("\n")
+			}
 		}
 
 		// Workspace skills
@@ -353,7 +457,7 @@ func New() (*Engine, error) {
 		defer cancel()
 
 		fmt.Printf("[engine.llmFn] Calling Generate model=%q temp=%.1f max=%d\n", specModel, temperature, maxTokens)
-		resp, err := client.Generate(llmCtx, llm.InferenceRequest{
+		resp, _, err := client.Generate(llmCtx, llm.InferenceRequest{
 			SystemPrompt: systemPrompt,
 			UserPrompt:   userPrompt,
 			Config: llm.InferenceConfig{
@@ -482,29 +586,43 @@ func New() (*Engine, error) {
 		Executor:     taskExecutor,
 		WorkspaceDir: workspaceDir,
 		CodeIndexer:  codeIdxStore,
+		ToolRegistry: toolReg,
+		Git:          adaGit.NewGitService(),
 	}, nil
 }
 
-func buildToolDefs(store *db.Store) []llm.ToolDefinition {
-	tools := store.AvailableTools()
-	defs := make([]llm.ToolDefinition, 0, len(tools))
-	for _, t := range tools {
-		if !t.Enabled {
-			continue
+func toLLMToolDefs(reg *adatools.Registry) []llm.ToolDefinition {
+	defs := reg.AsDefinitions()
+	out := make([]llm.ToolDefinition, 0, len(defs))
+	for _, d := range defs {
+		props := make(map[string]interface{})
+		required := make([]string, 0, len(d.Parameters))
+		for _, p := range d.Parameters {
+			props[p.Name] = map[string]interface{}{
+				"type":        p.Type,
+				"description": p.Description,
+			}
+			if p.Required {
+				required = append(required, p.Name)
+			}
 		}
-		defs = append(defs, llm.ToolDefinition{
+		schema := map[string]interface{}{
+			"type":       "object",
+			"properties": props,
+		}
+		if len(required) > 0 {
+			schema["required"] = required
+		}
+		out = append(out, llm.ToolDefinition{
 			Type: "function",
 			Function: llm.ToolFunction{
-				Name:        t.Name,
-				Description: t.Description,
-				Parameters: map[string]interface{}{
-					"type":       "object",
-					"properties": map[string]interface{}{},
-				},
+				Name:        d.Name,
+				Description: d.Description,
+				Parameters:  schema,
 			},
 		})
 	}
-	return defs
+	return out
 }
 
 func (e *Engine) SetContext(ctx context.Context) { e.ctx = ctx }
@@ -553,12 +671,17 @@ func (e *Engine) GetWorkspaceBySession(sessionID string) (string, error) {
 	return sess.WorkspaceID, nil
 }
 
-// ContextInfo retorna o uso de contexto de uma sessão.
+type ContextBreakdownItem struct {
+	Name   string `json:"name"`
+	Tokens int    `json:"tokens"`
+	Color  string `json:"color"`
+}
+
+// ContextInfo retorna o uso de contexto de uma sessão com breakdown por camada.
 type ContextInfo struct {
-	ContextLimit  int     `json:"context_limit"`
-	ContextUsed   int     `json:"context_used"`
-	SystemTokens  int     `json:"system_tokens"`
-	MessagesTokens int    `json:"messages_tokens"`
+	ContextLimit int                    `json:"context_limit"`
+	ContextUsed  int                    `json:"context_used"`
+	Breakdown    []ContextBreakdownItem `json:"breakdown"`
 }
 
 func (e *Engine) GetSessionContextInfo(sessionID string) ContextInfo {
@@ -567,7 +690,6 @@ func (e *Engine) GetSessionContextInfo(sessionID string) ContextInfo {
 		return ContextInfo{}
 	}
 
-	// 1. Context limit: model settings > workspace config
 	ctxLimit := 0
 	if sess.Provider != "" && sess.Model != "" {
 		modelString := sess.Provider + "/" + sess.Model
@@ -582,23 +704,142 @@ func (e *Engine) GetSessionContextInfo(sessionID string) ContextInfo {
 		}
 	}
 
-	// 2. Token usage — count real tokens via compactor
-	msgs := e.DB.GetMessages(sessionID)
-	sysTokens := 120
-	msgsTokens := 0
-	for _, m := range msgs {
-		msgsTokens += e.Orch.Compactor.CountTokens(m.Content)
+	items := e.buildBreakdown(sess)
+	total := 0
+	for _, it := range items {
+		total += it.Tokens
 	}
-	used := sysTokens + msgsTokens
-
 	return ContextInfo{
-		ContextLimit:   ctxLimit,
-		ContextUsed:    used,
-		SystemTokens:   sysTokens,
-		MessagesTokens: msgsTokens,
+		ContextLimit: ctxLimit,
+		ContextUsed:  total,
+		Breakdown:    items,
 	}
 }
 
-func (e *Engine) GetModelSettings(modelString string) (provider.ModelSettings, bool) {
-	return e.DB.GetModelSettings(modelString)
+func (e *Engine) buildBreakdown(sess *core.Session) []ContextBreakdownItem {
+	ct := e.Orch.Compactor.CountTokens
+	var items []ContextBreakdownItem
+	lastUserMsg := ""
+	msgs := e.DB.GetMessages(sess.ID)
+	wsDir := ""
+	ws, err := e.DB.GetWorkspace(sess.WorkspaceID)
+	if err != nil {
+		return items
+	}
+	wsDir = ws.Path
+	if len(ws.Folders) > 0 && ws.Folders[0] != "" {
+		wsDir = ws.Folders[0]
+	}
+
+	// ── System prompt ────────────────────────────────────────────
+	sysPrompt := e.Orch.SystemPrompt
+	if sysPrompt == "" {
+		sysPrompt = `You are Ada, an expert software engineering assistant integrated into the Ada Love IDE.`
+	}
+	sysTokens := ct(sysPrompt)
+	if sysTokens > 0 {
+		items = append(items, ContextBreakdownItem{Name: "System prompt", Tokens: sysTokens, Color: "#1e40af"})
+	}
+
+	// ── Messages ────────────────────────────────────────────────
+	msgsTokens := 0
+	for _, m := range msgs {
+		msgsTokens += ct(m.Content)
+		if m.Role == "user" {
+			lastUserMsg = m.Content
+		}
+	}
+	if msgsTokens > 0 {
+		items = append(items, ContextBreakdownItem{Name: "Messages", Tokens: msgsTokens, Color: "#3b82f6"})
+	}
+
+	// ── Golden rules (AGENT.md > .AGENT.md > .AGENTS.md …) ──────
+	agentPath, _ := findAgentsFile(wsDir)
+	if agentPath != "" {
+		if data, err := os.ReadFile(agentPath); err == nil && len(data) > 0 {
+			t := ct(string(data))
+			if t > 0 {
+				items = append(items, ContextBreakdownItem{Name: "Golden rules", Tokens: t, Color: "#6366f1"})
+			}
+		}
+	}
+
+	// ── Skills ───────────────────────────────────────────────────
+	if len(ws.Skills) > 0 {
+		skillTokens := 0
+		for _, name := range ws.Skills {
+			if info, err := e.Skills.GetInfo(name); err == nil && info != nil {
+				skillTokens += ct(info.Markdown)
+			}
+		}
+		if skillTokens > 0 {
+			items = append(items, ContextBreakdownItem{Name: "Skills", Tokens: skillTokens, Color: "#2563eb"})
+		}
+	}
+
+	// ── Knowledge ────────────────────────────────────────────────
+	if len(ws.Knowledge) > 0 {
+		kb := strings.Join(ws.Knowledge, "\n")
+		kbTokens := ct(kb)
+		if kbTokens > 0 && kbTokens < 2000 {
+			items = append(items, ContextBreakdownItem{Name: "Knowledge", Tokens: kbTokens, Color: "#a855f7"})
+		}
+	}
+
+	// ── Wiki ─────────────────────────────────────────────────────
+	if lastUserMsg != "" && e.Orch.Wiki != nil {
+		articles := e.Orch.Wiki.Search(context.Background(), lastUserMsg)
+		if len(articles) > 0 {
+			wikiTokens := 0
+			for _, art := range articles {
+				wikiTokens += ct(art.Content)
+			}
+			if wikiTokens > 0 {
+				items = append(items, ContextBreakdownItem{Name: "Wiki", Tokens: wikiTokens, Color: "#60a5fa"})
+			}
+		}
+	}
+
+	// ── Code symbols ─────────────────────────────────────────────
+	if lastUserMsg != "" && e.CodeIndexer != nil && e.CodeIndexer.Size() > 0 {
+		symbols := e.CodeIndexer.Search(lastUserMsg)
+		if len(symbols) > 0 {
+			maxSym := 10
+			if len(symbols) < maxSym {
+				maxSym = len(symbols)
+			}
+			symTokens := 0
+			for _, s := range symbols[:maxSym] {
+				symTokens += ct(fmt.Sprintf("- %s (%s) in %s:%d\n", s.Name, s.Type, s.FilePath, s.StartLine))
+			}
+			if symTokens > 0 {
+				items = append(items, ContextBreakdownItem{Name: "Code symbols", Tokens: symTokens, Color: "#06b6d4"})
+			}
+		}
+	}
+
+	return items
+}
+
+func findAgentsFile(dir string) (string, error) {
+	candidates := []string{
+		"AGENT.md",
+		".AGENT.md",
+		".AGENTS.md",
+		".agent.md",
+		".agents.md",
+		"AGENTS.md",
+	}
+	for _, name := range candidates {
+		path := filepath.Join(dir, name)
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+	return "", os.ErrNotExist
+}
+
+func (e *Engine) GetModelSettings(modelString string) (int, bool) {
+	ms, ok := e.DB.GetModelSettings(modelString)
+	return ms.ContextSize, ok
 }

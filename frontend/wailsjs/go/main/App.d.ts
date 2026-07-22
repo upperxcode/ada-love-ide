@@ -123,6 +123,32 @@ export function GetWorkspaceTemplates():Promise<Array<workspace.WorkspaceTemplat
 
 export function GetWorkspaces():Promise<Array<workspace.WorkspaceConfig>>;
 
+export function GitAdd(arg1:string,arg2:string):Promise<string>;
+
+export function GitBranchCheckout(arg1:string,arg2:string):Promise<string>;
+
+export function GitBranchCreate(arg1:string,arg2:string):Promise<string>;
+
+export function GitBranchList(arg1:string):Promise<string>;
+
+export function GitCommit(arg1:string,arg2:string):Promise<string>;
+
+export function GitDiff(arg1:string):Promise<string>;
+
+export function GitInit(arg1:string):Promise<string>;
+
+export function GitLog(arg1:string,arg2:number):Promise<string>;
+
+export function GitPull(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
+
+export function GitPush(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
+
+export function GitRemoteAdd(arg1:string,arg2:string,arg3:string):Promise<string>;
+
+export function GitRemoteList(arg1:string):Promise<string>;
+
+export function GitStatus(arg1:string):Promise<string>;
+
 export function InferField(arg1:string,arg2:specwizard.SpecWizardConfig):Promise<string>;
 
 export function InstallMCPFromRepo(arg1:string):Promise<void>;
@@ -150,6 +176,8 @@ export function RemoveModel(arg1:string,arg2:string):Promise<void>;
 export function RemoveWorkerFromWorkspace(arg1:string,arg2:string):Promise<void>;
 
 export function RenameSession(arg1:string,arg2:string):Promise<core.Session>;
+
+export function RespondPermission(arg1:string,arg2:string):Promise<void>;
 
 export function RetryMessage(arg1:string,arg2:string):Promise<string>;
 

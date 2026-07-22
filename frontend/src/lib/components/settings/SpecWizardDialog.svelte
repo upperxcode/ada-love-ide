@@ -771,8 +771,9 @@ async function initializeForm() {
 									{/if}
 									<div class="grid grid-cols-[1fr_100px_100px_auto] gap-4 items-end mt-4">
 										<div class="flex flex-col gap-1">
-											<label class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">Library</label>
+											<label for="new-lib-name" class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">Library</label>
 											<input
+												id="new-lib-name"
 												type="text"
 												bind:value={newLibName}
 												placeholder="library name"
@@ -780,8 +781,9 @@ async function initializeForm() {
 											/>
 										</div>
 										<div class="flex flex-col gap-1">
-											<label class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">Version</label>
+											<label for="new-lib-version" class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">Version</label>
 											<input
+												id="new-lib-version"
 												type="text"
 												bind:value={newLibVersion}
 												placeholder="e.g. 1.0.0"
@@ -789,8 +791,8 @@ async function initializeForm() {
 											/>
 										</div>
 										<div class="flex flex-col gap-1 items-center">
-											<label class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">Mandatory</label>
-											<Switch checked={newLibMandatory} onCheckedChange={(v) => newLibMandatory = v} size="sm" />
+											<label for="new-lib-mandatory" class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">Mandatory</label>
+											<Switch id="new-lib-mandatory" checked={newLibMandatory} onCheckedChange={(v) => newLibMandatory = v} size="sm" />
 										</div>
 										<button
 											type="button"
@@ -834,7 +836,7 @@ async function initializeForm() {
 													placeholder="Usage example..."
 													rows="2"
 													class="bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-lg px-2 py-1.5 text-xs font-mono w-full outline-none focus:ring-1 focus:ring-[var(--accent-primary)]/30 resize-none"
-												/>
+												></textarea>
 												<button type="button" onclick={() => (formData.stack_config = formData.stack_config.filter((_: unknown, idx: number) => idx !== i))} class="text-[var(--text-faint)] hover:text-red-500 p-2 transition-colors cursor-pointer self-start mt-1">
 													<Icon name="x" size={16} />
 												</button>
@@ -847,8 +849,9 @@ async function initializeForm() {
 									{/if}
 									<div class="grid grid-cols-[1fr_2fr_auto] gap-4 items-end mt-4">
 										<div class="flex flex-col gap-1">
-											<label class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">Name</label>
+											<label for="stack-name" class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">Name</label>
 											<input
+												id="stack-name"
 												type="text"
 												bind:value={newLibName}
 												placeholder="stack name"
@@ -856,8 +859,9 @@ async function initializeForm() {
 											/>
 										</div>
 										<div class="flex flex-col gap-1">
-											<label class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">Example</label>
+											<label for="stack-example" class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)]">Example</label>
 											<input
+												id="stack-example"
 												type="text"
 												bind:value={newLibVersion}
 												placeholder="example snippet"

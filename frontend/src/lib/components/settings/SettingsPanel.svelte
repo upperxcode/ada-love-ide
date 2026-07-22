@@ -40,11 +40,13 @@ import WorkspaceDialog from './WorkspaceDialog.svelte';
 	] as const;
 
 	type CategoryId = (typeof categories)[number]['id'];
-	let activeCategory = $state<CategoryId>(initialCategory);
+	const _initialCategory = initialCategory;
+	let activeCategory = $state<CategoryId>(_initialCategory);
 
 	// ── Edit dialog state ──
 	let dialogOpen = $state(false);
-	let dialogEntity = $state<Record<string, any> | null>(initialEntity);
+	const _initialEntity = initialEntity;
+	let dialogEntity = $state<Record<string, any> | null>(_initialEntity);
 
 	// Sync external initialCategory/initialEntity when panel opens
 	$effect(() => {

@@ -6,7 +6,7 @@
 	import {
 		GetWorkspaces, SetActiveWorkspace, GetWorkers, GetSessions,
 		AddWorkerToWorkspace, RemoveWorkerFromWorkspace, ListWorkspaceWorkers,
-		CreateSessionWithConfig, CountWorkerSessions, NextChatName, RenameSession, TogglePin, DeleteSession,
+		CreateSessionWithConfig, CountWorkerSessions, RenameSession, TogglePin, DeleteSession,
 	} from '../../../../wailsjs/go/main/App';
 	import { toastStore } from '$lib/stores/toast.svelte';
 
@@ -27,10 +27,12 @@
 	interface SidebarProps {
 		class?: string; onOpenSettings?: () => void; onNewWorkspace?: () => void;
 		onEditWorkspace?: (ws: Record<string, any>) => void;
+		onOpenLogs?: () => void; onOpenGit?: () => void;
 		activeWorkspace?: string; activeSessionID?: string;
 	}
 
 	let { class: className, onOpenSettings, onNewWorkspace, onEditWorkspace,
+		onOpenLogs, onOpenGit,
 		activeWorkspace = $bindable(''), activeSessionID = $bindable('') }: SidebarProps = $props();
 
 	let workspaces = $state<WorkspaceItem[]>([]);
@@ -137,11 +139,10 @@
 
 	async function createChat(wsPath: string, workerName: string) {
 		try {
-			const name = await NextChatName(wsPath, workerName) as string;
 			const sess = await CreateSessionWithConfig(wsPath, workerName, activeSessionID);
 			activeSessionID = sess.id;
 			await loadSessions();
-		} catch (e: any) { toastStore.error('Erro ao criar chat', e?.message || String(e)); }
+		} catch (e: any) { toastStore.error('Failed to create chat', e?.message || String(e)); }
 	}
 
 	async function confirmDeleteWorker(wsPath: string, workerName: string) {
@@ -157,14 +158,14 @@
 			if (activeSessionID === chatID) activeSessionID = '';
 			await loadSessions();
 		} catch (e: any) {
-			toastStore.error('Erro ao deletar chat', e?.message || String(e));
+			toastStore.error('Failed to delete chat', e?.message || String(e));
 		}
 	}
 
 	async function doRemoveWorker(wsPath: string, workerName: string) {
 		try {
 			await RemoveWorkerFromWorkspace(wsPath, workerName);
-			toastStore.success(`Worker "${workerName}" removido`);
+			toastStore.success(`Worker "${workerName}" removed`);
 			deleteConfirmWs = null; deleteConfirmWorker = null; deleteTyped = '';
 			await loadAll();
 		} catch (e: any) { toastStore.error('Erro', e?.message || String(e)); }
@@ -193,7 +194,7 @@
 		{#if loading}
 			<p class="px-2 py-6 text-center text-[11px]" style="color: var(--text-faint)">Carregando...</p>
 		{:else if workspaces.length === 0}
-			<p class="px-2 py-6 text-center text-[11px]" style="color: var(--text-faint)">Nenhum workspace ainda</p>
+			<p class="px-2 py-6 text-center text-[11px]" style="color: var(--text-faint)">No workspaces yet</p>
 		{:else}
 			<div class="flex flex-col gap-0.5">
 				{#each workspaces as ws}
@@ -308,17 +309,27 @@
 	<Separator class="mx-3 w-auto" />
 	<div class="flex items-center justify-between px-3 py-2">
 		<span class="text-[11px] font-mono" style="color: var(--text-faint)">v1.1.0</span>
-		<button type="button" onclick={onOpenSettings}
-			class="flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer hover:bg-[var(--surface-hover)]" style="color: var(--text-muted)">
-			<Icon name="cog" size={16} />
-		</button>
+		<div class="flex items-center gap-1">
+			<button type="button" onclick={onOpenLogs} title="Logs"
+				class="flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer hover:bg-[var(--surface-hover)]" style="color: var(--text-muted)">
+				<Icon name="log" size={15} />
+			</button>
+			<button type="button" onclick={onOpenGit} title="Git"
+				class="flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer hover:bg-[var(--surface-hover)]" style="color: var(--text-muted)">
+				<Icon name="git" size={15} />
+			</button>
+			<button type="button" onclick={onOpenSettings}
+				class="flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer hover:bg-[var(--surface-hover)]" style="color: var(--text-muted)">
+				<Icon name="cog" size={16} />
+			</button>
+		</div>
 	</div>
 </aside>
 
 {#if popoverOpen}
-	<div class="fixed inset-0 z-[90]" onclick={closePopover}></div>
+	<button type="button" class="fixed inset-0 z-[90] cursor-default" aria-label="Close popover" onclick={closePopover}></button>
 	<div class="fixed z-[100] w-[240px] bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-xl shadow-2xl overflow-hidden"
-		style="left: {popoverX}px; top: {popoverY}px;" bind:this={popoverRef} onclick={(e) => e.stopPropagation()}>
+		style="left: {popoverX}px; top: {popoverY}px;" bind:this={popoverRef} onclick={(e) => e.stopPropagation()} role="presentation">
 		<div class="flex items-center justify-between px-3 py-2 border-b border-[var(--border-primary)]">
 			<span class="text-[11px] font-bold uppercase" style="color: var(--text-faint)">{popoverWs?.title || ''} — Workers</span>
 			<button type="button" onclick={closePopover}
@@ -330,7 +341,7 @@
 			{#if loadingWorkers}
 				<div class="flex items-center justify-center py-6"><div class="h-5 w-5 rounded-full border-2 border-[var(--border-primary)] border-t-[var(--accent-primary)] animate-spin"></div></div>
 			{:else if allWorkers.length === 0}
-				<p class="text-center py-6 text-[11px]" style="color: var(--text-faint)">Nenhum worker configurado</p>
+				<p class="text-center py-6 text-[11px]" style="color: var(--text-faint)">No worker configured</p>
 			{:else}
 				{#each allWorkers as wkr}
 					{@const isLinked = linkedWorkerNames.includes(wkr.name)}
@@ -356,7 +367,7 @@
 {/if}
 
 {#if deleteConfirmWs && deleteConfirmWorker}
-	<div class="fixed inset-0 z-[90]" onclick={() => { deleteConfirmWs = null; deleteConfirmWorker = null; deleteTyped = ''; }}></div>
+	<button type="button" class="fixed inset-0 z-[90] cursor-default" aria-label="Close delete confirmation" onclick={() => { deleteConfirmWs = null; deleteConfirmWorker = null; deleteTyped = ''; }}></button>
 	<div class="fixed z-[100] w-[280px] bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-xl shadow-2xl overflow-hidden"
 		style="left: 50%; top: 50%; transform: translate(-50%, -50%);">
 		<div class="px-4 py-3 border-b border-[var(--border-primary)]">

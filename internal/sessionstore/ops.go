@@ -44,20 +44,12 @@ func (s *Saver) SetConfig(id, model, provider, mode, thinking string) error {
 		return ErrNotFound
 	}
 
-	// Extrai provider do model se não foi passado separadamente
+	// Se provider não foi passado, extrai do model (formato "provider/model")
 	if provider == "" && model != "" {
 		parts := strings.SplitN(model, "/", 2)
 		if len(parts) == 2 {
 			provider = parts[0]
-		}
-	}
-
-	// Model nunca deve conter o prefixo do provider
-	if model != "" && strings.Contains(model, "/") {
-		parts := strings.SplitN(model, "/", 2)
-		model = parts[len(parts)-1]
-		if provider == "" {
-			provider = parts[0]
+			model = parts[1]
 		}
 	}
 

@@ -1,22 +1,27 @@
 <script lang="ts">
-	import { marked } from 'marked';
+	import { marked, Renderer } from 'marked';
 	import hljs from 'highlight.js';
 
-	marked.setOptions({
-		highlight: function (code: string, lang: string) {
-			if (lang && hljs.getLanguage(lang)) {
-				try { return hljs.highlight(code, { language: lang }).value; }
-				catch (_) {}
-			}
-			return hljs.highlightAuto(code).value;
-		},
-		breaks: true,
-	});
+	const renderer = new Renderer();
+	renderer.code = ({ text, lang }) => {
+		let highlighted = text;
+		if (lang && hljs.getLanguage(lang)) {
+			try { highlighted = hljs.highlight(text, { language: lang }).value; }
+			catch { highlighted = text; }
+		} else if (text) {
+			try { highlighted = hljs.highlightAuto(text).value; }
+			catch { highlighted = text; }
+		}
+		const langClass = lang ? ` class="hljs language-${lang}"` : ' class="hljs"';
+		return `<pre><code${langClass}>${highlighted}</code></pre>`;
+	};
+
+	marked.setOptions({ renderer, breaks: true });
 
 	interface Props { content: string; }
 	let { content }: Props = $props();
 
-	let rendered = $derived(() => {
+	let rendered = $derived.by(() => {
 		if (!content) return '';
 		try { return marked.parse(content) as string; }
 		catch { return content; }
@@ -43,7 +48,7 @@
 		line-height: 1.7;
 	"
 >
-	{@html rendered()}
+	{@html rendered}
 
 	<style>
 		:global(.prose :where(pre)) {

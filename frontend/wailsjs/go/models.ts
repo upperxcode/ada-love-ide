@@ -186,6 +186,8 @@ export namespace core {
 	    tool_call_id: string;
 	    // Go type: time
 	    time: any;
+	    thinking_content?: string;
+	    thinking_duration?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new RawMessage(source);
@@ -198,6 +200,8 @@ export namespace core {
 	        this.tool_calls = source["tool_calls"];
 	        this.tool_call_id = source["tool_call_id"];
 	        this.time = this.convertValues(source["time"], null);
+	        this.thinking_content = source["thinking_content"];
+	        this.thinking_duration = source["thinking_duration"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -281,11 +285,26 @@ export namespace core {
 
 export namespace engine {
 	
+	export class ContextBreakdownItem {
+	    name: string;
+	    tokens: number;
+	    color: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ContextBreakdownItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.tokens = source["tokens"];
+	        this.color = source["color"];
+	    }
+	}
 	export class ContextInfo {
 	    context_limit: number;
 	    context_used: number;
-	    system_tokens: number;
-	    messages_tokens: number;
+	    breakdown: ContextBreakdownItem[];
 	
 	    static createFrom(source: any = {}) {
 	        return new ContextInfo(source);
@@ -295,9 +314,26 @@ export namespace engine {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.context_limit = source["context_limit"];
 	        this.context_used = source["context_used"];
-	        this.system_tokens = source["system_tokens"];
-	        this.messages_tokens = source["messages_tokens"];
+	        this.breakdown = this.convertValues(source["breakdown"], ContextBreakdownItem);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }

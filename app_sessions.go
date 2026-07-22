@@ -17,19 +17,37 @@ func (a *App) CreateSession(workspaceID, workerName string) core.Session {
 	return a.eng.Saver.Create(workspaceID, workerName)
 }
 
-// CreateSessionWithConfig cria um novo chat copiando a config (model, provider, mode, thinking) de uma sessão existente.
+// CreateSessionWithConfig cria um novo chat com nome único e copia a config (model, provider, mode, thinking) de uma sessão existente.
 func (a *App) CreateSessionWithConfig(workspaceID, workerName, sourceSessionID string) (core.Session, error) {
 	sess := a.eng.Saver.Create(workspaceID, workerName)
+
+	// Generate unique chat name: "New Chat 1", "New Chat 2", etc.
+	sessions := a.eng.DB.ListSessions(workspaceID)
+	used := make(map[string]bool)
+	for _, s := range sessions {
+		if s.WorkerName == workerName {
+			used[s.Title] = true
+		}
+	}
+	for i := 1; i <= 999; i++ {
+		name := fmt.Sprintf("New Chat %d", i)
+		if !used[name] {
+			sess.Title = name
+			break
+		}
+	}
+
 	if sourceSessionID != "" {
 		src, ok := a.eng.DB.GetSession(sourceSessionID)
 		if ok {
-			_ = a.eng.Saver.SetConfig(sess.ID, src.Model, src.Provider, src.Mode, src.Thinking)
 			sess.Model = src.Model
 			sess.Provider = src.Provider
 			sess.Mode = src.Mode
 			sess.Thinking = src.Thinking
 		}
 	}
+
+	a.eng.DB.PutSession(&sess)
 	return sess, nil
 }
 

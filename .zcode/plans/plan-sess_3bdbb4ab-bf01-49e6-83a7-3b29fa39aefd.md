@@ -1,0 +1,1 @@
+ 任务完成：ActionItem 组件已创建并集成至 MessageBubble；ChatPanel 已更新以构建并持久化 actionLogs，stream:chunk 优先基于完整 message（含 actions）进行同步，turnEnd 以 persistedActionLogs 为准合并状态；ReasoningTrigger 与 ReasoningContent 已移除冗余 emoji 与 header，样式收敛至最小化深色主题。交付结果已验证通过。
