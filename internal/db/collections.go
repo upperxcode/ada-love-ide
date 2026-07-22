@@ -821,6 +821,39 @@ func (s *Store) GetFixedModel(name string) (provider, model string, tools []stri
 	return m.Provider, m.Model, tools
 }
 
+func (s *Store) ListFixedModels() []map[string]any {
+	ctx := context.Background()
+	items, err := s.fixedModels.ListFixedModels(ctx)
+	if err != nil {
+		fmt.Printf("[FixedModel] ListFixedModels error: %v\n", err)
+		return nil
+	}
+	fmt.Printf("[FixedModel] ListFixedModels returned %d items\n", len(items))
+	out := make([]map[string]any, 0, len(items))
+	for _, m := range items {
+		t, _ := s.fixedModels.ListTools(ctx, m.ID)
+		tools := make([]string, len(t))
+		for i, tool := range t {
+			tools[i] = tool.Tool
+		}
+		out = append(out, map[string]any{
+			"name":     m.Name,
+			"provider": m.Provider,
+			"model":    m.Model,
+			"tools":    tools,
+		})
+	}
+	return out
+}
+
+func (s *Store) DeleteFixedModel(name string) {
+	ctx := context.Background()
+	m, err := s.fixedModels.GetFixedModel(ctx, name)
+	if err == nil {
+		_ = s.fixedModels.DeleteFixedModel(ctx, m.ID)
+	}
+}
+
 func (s *Store) SaveFixedModel(name, provider, model string, tools []string) {
 	ctx := context.Background()
 	m, err := s.fixedModels.GetFixedModel(ctx, name)

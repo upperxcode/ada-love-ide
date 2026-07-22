@@ -395,7 +395,7 @@ async function handleOpenDirectory() {
 							class="flex w-full items-center justify-between rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-primary)] p-4 transition-colors cursor-pointer hover:bg-[var(--surface-hover)]"
 						>
 							<div class="flex items-center gap-3">
-								<div class="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center text-green-500">
+								<div class="w-8 h-8 rounded-lg bg-[var(--status-success)]/10 flex items-center justify-center text-[var(--status-success)]">
 									<Icon name="book" size={14} />
 								</div>
 								<div class="flex flex-col">
@@ -660,7 +660,7 @@ async function handleOpenDirectory() {
 			</div>
 
 			<!-- ── Footer Buttons ── -->
-			<div class="px-8 py-5 bg-[var(--surface-elevated)] border-t border-[var(--border-primary)] flex justify-end gap-3 shrink-0">
+			<div class="px-8 py-5 bg-[var(--surface-form)] border-t border-[var(--border-primary)] flex justify-end gap-3 shrink-0">
 				<Button variant="ghost" onclick={() => onOpenChange(false)}>
 					Cancelar
 				</Button>

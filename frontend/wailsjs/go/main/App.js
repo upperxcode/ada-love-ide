@@ -46,6 +46,10 @@ export function DeleteDBProvider(arg1) {
   return window['go']['main']['App']['DeleteDBProvider'](arg1);
 }
 
+export function DeleteFixedModel(arg1) {
+  return window['go']['main']['App']['DeleteFixedModel'](arg1);
+}
+
 export function DeleteSession(arg1) {
   return window['go']['main']['App']['DeleteSession'](arg1);
 }
@@ -108,6 +112,10 @@ export function GetEnvProviderKeys() {
 
 export function GetExperts() {
   return window['go']['main']['App']['GetExperts']();
+}
+
+export function GetFixedModels() {
+  return window['go']['main']['App']['GetFixedModels']();
 }
 
 export function GetInstalledSkills() {
@@ -242,6 +250,10 @@ export function GitDiff(arg1) {
   return window['go']['main']['App']['GitDiff'](arg1);
 }
 
+export function GitInferCommitMessage(arg1) {
+  return window['go']['main']['App']['GitInferCommitMessage'](arg1);
+}
+
 export function GitInit(arg1) {
   return window['go']['main']['App']['GitInit'](arg1);
 }
@@ -340,6 +352,10 @@ export function SaveCustomSkill(arg1, arg2, arg3, arg4) {
 
 export function SaveDBProvider(arg1, arg2) {
   return window['go']['main']['App']['SaveDBProvider'](arg1, arg2);
+}
+
+export function SaveFixedModel(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SaveFixedModel'](arg1, arg2, arg3, arg4);
 }
 
 export function SaveProvidersConfig() {

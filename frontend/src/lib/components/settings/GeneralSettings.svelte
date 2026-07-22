@@ -5,6 +5,109 @@
 	import { theme } from '$lib/stores/theme.svelte';
 	import SettingRow from './SettingRow.svelte';
 
+import { providersStore } from '$lib/stores/providers.svelte';
+
+// ── Fixed Models State ──
+const FIXED_MODEL_NAMES = ['Classifier', 'embedding', 'image', 'spec', 'tinybrain'];
+const FIXED_MODEL_LABELS: Record<string, string> = {
+	Classifier: 'Classifier',
+	embedding: 'Embedding',
+	image: 'Image',
+	spec: 'Spec',
+	tinybrain: 'TinyBrain',
+};
+function displayName(name: string): string {
+	return FIXED_MODEL_LABELS[name] || name;
+}
+let fixedModels = $state<Record<string, { provider: string; model: string; tools: string[] }>>({});
+let availableTools = $state<any[]>([]);
+let openStates = $state<Record<string, boolean>>({});
+let toolsOpen = $state<Record<string, boolean>>({});
+
+const providerOptions = $derived(
+	providersStore.providers.map(p => ({ value: p.name, label: p.name }))
+);
+
+function getModelOptions(providerName: string) {
+	const models = providersStore.getModels(providerName);
+	return models.map(m => ({ value: m.name, label: m.name }));
+}
+
+function toggleOpen(name: string) {
+	openStates[name] = !openStates[name];
+	openStates = { ...openStates };
+}
+
+function toggleToolsOpen(name: string) {
+	toolsOpen[name] = !toolsOpen[name];
+	toolsOpen = { ...toolsOpen };
+}
+
+function toggleTool(name: string, toolName: string) {
+	if (!fixedModels[name].tools) fixedModels[name].tools = [];
+	const idx = fixedModels[name].tools.indexOf(toolName);
+	if (idx >= 0) {
+		fixedModels[name].tools.splice(idx, 1);
+	} else {
+		fixedModels[name].tools.push(toolName);
+	}
+	fixedModels = { ...fixedModels };
+}
+
+async function saveFixedModel(name: string) {
+	const fm = fixedModels[name];
+	console.log(`[FixedModel] Saving "${name}":`, JSON.stringify(fm));
+	if (!fm) return;
+	try {
+		await (window as any).go.main.App.SaveFixedModel(name, fm.provider, fm.model, fm.tools || []);
+		await loadFixedModels();
+	} catch (e) {
+		console.error('[FixedModel] Save failed:', e);
+	}
+}
+
+async function loadFixedModels() {
+	try {
+		console.log('[FixedModel] Loading from backend...');
+		const list = await (window as any).go.main.App.GetFixedModels();
+		console.log('[FixedModel] Backend returned:', JSON.stringify(list));
+		const map: Record<string, { provider: string; model: string; tools: string[] }> = {};
+		// Initialize all known names even if not in DB
+		for (const n of FIXED_MODEL_NAMES) map[n] = { provider: '', model: '', tools: [] };
+		// Overlay DB values
+		for (const m of list || []) {
+			if (m.name) {
+				console.log(`[FixedModel] DB item "${m.name}" →`, JSON.stringify(m));
+				map[m.name] = { provider: m.provider || '', model: m.model || '', tools: m.tools || [] };
+			} else {
+				console.warn('[FixedModel] DB item without name:', JSON.stringify(m));
+			}
+		}
+		console.log('[FixedModel] Final map keys:', Object.keys(map));
+		fixedModels = map;
+	} catch (e) {
+		console.error('[FixedModel] Load failed:', e);
+	}
+}
+
+async function loadTools() {
+	try {
+		const cmds = await (window as any).go.main.App.ListAllCommands();
+		availableTools = cmds || [];
+	} catch (e) {
+		console.error('[FixedModel] Load tools failed:', e);
+	}
+}
+
+// Load on mount
+$effect(() => {
+	console.log('[FixedModel] $effect running, providersStore.loaded:', providersStore.loaded);
+	if (!providersStore.loaded) providersStore.load();
+	loadTools();
+	loadFixedModels();
+});
+
+
 	// ── Derived options arrays for Select ──
 	const colorThemeOptions = $derived(
 		theme.availableColorThemes.map((ct) => ({ value: ct.id, label: ct.name }))
@@ -34,7 +137,7 @@
 	);
 </script>
 
-<div class="flex flex-col gap-3 p-4 overflow-y-auto flex-1">
+<div class="flex flex-col gap-3 p-4 bg-[var(--surface-form)]">
 
 	<!-- ═══════════════════════════════════════════════════════════════
 	     Card: System (app-wide theming)
@@ -171,65 +274,96 @@
 	</div>
 
 	<!-- ═══════════════════════════════════════════════════════════════
-	     Card: Chat (chat-specific theming)
-	     ═══════════════════════════════════════════════════════════════ -->
-	<div class="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] overflow-hidden">
-		<div class="px-4 py-3 border-b border-[var(--border-primary)] flex items-center gap-2">
-			<div class="flex items-center justify-center w-5 h-5 rounded" style="background-color: var(--accent-primary); color: var(--accent-primary-fg)">
-				<Icon name="messageSquare" size={12} />
-			</div>
-			<h4 class="text-xs font-semibold tracking-wider" style="color: var(--text-secondary)">CHAT</h4>
-		</div>
-		<div class="divide-y divide-[var(--border-primary)]">
-			<!-- Row: Chat Color Theme -->
-			<div class="px-4">
-				<SettingRow
-					label="Color Theme"
-					description="Color palette exclusive to the chat area"
-				>
-					<ThemedSelect
-						value={theme.chatColorThemeId}
-						onValueChange={(v) => theme.setChatColorTheme(v)}
-						options={colorThemeOptions}
-						placeholder="Select theme"
-						class="w-36"
-					/>
-				</SettingRow>
-			</div>
+  <!-- ═══════════════════════════════════════════════════════════════
+       Card: Chat (chat-specific theming)
+       ═══════════════════════════════════════════════════════════════ -->
+  <div class="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] overflow-hidden">
+    <div class="px-4 py-3 border-b border-[var(--border-primary)] flex items-center gap-2">
+      <div class="flex items-center justify-center w-5 h-5 rounded" style="background-color: var(--accent-primary); color: var(--accent-primary-fg)">
+        <Icon name="messageSquare" size={12} />
+      </div>
+      <h4 class="text-xs font-semibold tracking-wider" style="color: var(--text-secondary)">CHAT</h4>
+    </div>
+    <div class="divide-y divide-[var(--border-primary)]">
+      <!-- Row: Chat Color Theme -->
+      <div class="px-4">
+        <SettingRow label="Color Theme" description="Color palette exclusive to the chat area">
+          <ThemedSelect value={theme.chatColorThemeId} onValueChange={(v) => theme.setChatColorTheme(v)} options={colorThemeOptions} placeholder="Select theme" class="w-36" />
+        </SettingRow>
+      </div>
+      <!-- Row: Chat Font Theme -->
+      <div class="px-4">
+        <SettingRow label="Font Theme" description="Typeface used only inside the chat area">
+          <ThemedSelect value={theme.chatFontThemeId} onValueChange={(v) => theme.setChatFontTheme(v)} options={fontThemeOptions} placeholder="Select font" class="w-36" />
+        </SettingRow>
+      </div>
+      <!-- Row: Chat Font Size -->
+      <div class="px-4">
+        <SettingRow label="Font Size" description="Text size used only inside the chat area">
+          <ThemedSelect value={theme.chatFontSizeId} onValueChange={(v) => theme.setChatFontSize(v)} options={fontSizeOptions} placeholder="Select size" class="w-36" />
+        </SettingRow>
+      </div>
+    </div>
+  </div>
 
-			<!-- Row: Chat Font Theme -->
-			<div class="px-4">
-				<SettingRow
-					label="Font Theme"
-					description="Typeface used only inside the chat area"
-				>
-					<ThemedSelect
-						value={theme.chatFontThemeId}
-						onValueChange={(v) => theme.setChatFontTheme(v)}
-						options={fontThemeOptions}
-						placeholder="Select font"
-						class="w-36"
-					/>
-				</SettingRow>
-			</div>
-
-			<!-- Row: Chat Font Size -->
-			<div class="px-4">
-				<SettingRow
-					label="Font Size"
-					description="Text size used only inside the chat area"
-				>
-					<ThemedSelect
-						value={theme.chatFontSizeId}
-						onValueChange={(v) => theme.setChatFontSize(v)}
-						options={fontSizeOptions}
-						placeholder="Select size"
-						class="w-36"
-					/>
-				</SettingRow>
-			</div>
-		</div>
-	</div>
+  <!-- ═══════════════════════════════════════════════════════════════
+       Card: Fixed Models
+       ═══════════════════════════════════════════════════════════════ -->
+  <div class="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] overflow-hidden">
+    <div class="px-4 py-3 border-b border-[var(--border-primary)] flex items-center gap-2">
+      <div class="flex items-center justify-center w-5 h-5 rounded" style="background-color: var(--accent-primary); color: var(--accent-primary-fg)">
+        <Icon name="cpu" size={12} />
+      </div>
+      <h4 class="text-xs font-semibold tracking-wider" style="color: var(--text-secondary)">FIXED MODELS</h4>
+    </div>
+    <div class="divide-y divide-[var(--border-primary)]">
+      {#each FIXED_MODEL_NAMES as name}
+        {@const fm = fixedModels[name]}
+        <div class="px-4 py-3">
+          <div class="flex items-center justify-between cursor-pointer" onclick={() => toggleOpen(name)}>
+            <span class="text-[12px] font-medium" style="color: var(--text-primary)">{displayName(name)}</span>
+            <div class="flex items-center gap-2">
+              {#if fm?.provider}
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-hover)]" style="color: var(--text-muted)">{fm.provider}/{fm.model || '?'}</span>
+              {/if}
+              <Icon name={openStates[name] ? 'chevron-up' : 'chevron-down'} size={14} style="color: var(--text-muted)" />
+            </div>
+          </div>
+          {#if openStates[name] && fm}
+            <div class="mt-3 flex flex-col gap-3">
+              <SettingRow label="Provider" description="AI provider for this model">
+                <ThemedSelect value={fm.provider} onValueChange={(v) => { fm.provider = v; fm.model = ''; fixedModels = { ...fixedModels }; }} options={providerOptions} placeholder="Not set" class="w-36" />
+              </SettingRow>
+              <SettingRow label="Model" description="Model identifier">
+                <ThemedSelect value={fm.model} onValueChange={(v) => { fm.model = v; fixedModels = { ...fixedModels }; }} options={getModelOptions(fm.provider)} placeholder="Not set" class="w-36" />
+              </SettingRow>
+              <div class="border-t border-[var(--border-primary)] pt-2">
+                <div class="flex items-center justify-between cursor-pointer" onclick={() => toggleToolsOpen(name)}>
+                  <span class="text-[11px] font-medium" style="color: var(--text-muted)">Tools ({(fm.tools || []).length})</span>
+                  <Icon name={toolsOpen[name] ? 'chevron-up' : 'chevron-down'} size={12} style="color: var(--text-muted)" />
+                </div>
+                {#if toolsOpen[name]}
+                  <div class="mt-2 flex flex-wrap gap-1.5">
+                    {#each availableTools as tool}
+                      <button type="button" onclick={() => toggleTool(name, tool.name)} class={cn(
+                        'px-2 py-1 rounded text-[10px] font-medium transition-colors cursor-pointer',
+                        (fm.tools || []).includes(tool.name) ? 'bg-[var(--accent-primary)]/15 text-[var(--accent-primary)]' : 'bg-[var(--surface-hover)] text-[var(--text-muted)] hover:bg-[var(--surface-active)]'
+                      )}>
+                        {tool.name}
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+              <button type="button" onclick={() => saveFixedModel(name)} class="self-end px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer hover:brightness-110 active:scale-[0.97]" style="background-color: var(--accent-primary); color: var(--accent-primary-fg)">
+                Save {displayName(name)}
+              </button>
+            </div>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  </div>
 
 	<!-- ═══════════════════════════════════════════════════════════════
 	     Card: Shortcuts (placeholder)

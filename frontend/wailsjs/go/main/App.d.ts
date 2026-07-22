@@ -37,6 +37,8 @@ export function CreateToolProfile(arg1:string,arg2:string,arg3:string):Promise<t
 
 export function DeleteDBProvider(arg1:string):Promise<void>;
 
+export function DeleteFixedModel(arg1:string):Promise<void>;
+
 export function DeleteSession(arg1:string):Promise<void>;
 
 export function DeleteSpecWizard(arg1:string):Promise<void>;
@@ -68,6 +70,8 @@ export function GetEngineeringPhilosophies(arg1:string):Promise<Array<specwizard
 export function GetEnvProviderKeys():Promise<Array<string>>;
 
 export function GetExperts():Promise<Array<Record<string, any>>>;
+
+export function GetFixedModels():Promise<Array<Record<string, any>>>;
 
 export function GetInstalledSkills():Promise<Array<string>>;
 
@@ -135,6 +139,8 @@ export function GitCommit(arg1:string,arg2:string):Promise<string>;
 
 export function GitDiff(arg1:string):Promise<string>;
 
+export function GitInferCommitMessage(arg1:string):Promise<string>;
+
 export function GitInit(arg1:string):Promise<string>;
 
 export function GitLog(arg1:string,arg2:number):Promise<string>;
@@ -184,6 +190,8 @@ export function RetryMessage(arg1:string,arg2:string):Promise<string>;
 export function SaveCustomSkill(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function SaveDBProvider(arg1:string,arg2:provider.ProviderConfig):Promise<void>;
+
+export function SaveFixedModel(arg1:string,arg2:string,arg3:string,arg4:Array<string>):Promise<void>;
 
 export function SaveProvidersConfig():Promise<void>;
 

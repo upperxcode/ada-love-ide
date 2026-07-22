@@ -942,7 +942,7 @@ async function initializeForm() {
 							<h3 class="text-xs font-bold uppercase tracking-[0.2em] text-[var(--text-faint)] px-1 mb-1">Architecture Recommendations</h3>
 							
 							{#each recommendations as r}
-								<div class="p-6 rounded-2xl border flex flex-col gap-2 shadow-sm {r.level === 'success' ? 'border-green-500/30 bg-green-500/5 text-green-500' : r.level === 'warning' ? 'border-yellow-500/30 bg-yellow-500/5 text-yellow-500' : 'border-red-500/30 bg-red-500/5 text-red-500'}">
+								<div class="p-6 rounded-2xl border flex flex-col gap-2 shadow-sm {r.level === 'success' ? 'border-[var(--status-success)]/30 bg-[var(--status-success)]/5 text-[var(--status-success)]' : r.level === 'warning' ? 'border-[var(--status-warning)]/30 bg-[var(--status-warning)]/5 text-[var(--status-warning)]' : 'border-[var(--status-error)]/30 bg-[var(--status-error)]/5 text-[var(--status-error)]'}">
 									<div class="flex items-center gap-2">
 										<Icon name={r.level === 'critical' ? 'loader' : r.level === 'warning' ? 'cog' : 'check'} size={16} />
 										<span class="text-xs font-bold uppercase tracking-widest">{r.title}</span>
@@ -964,16 +964,16 @@ async function initializeForm() {
 			{/if}
 
 			<!-- ── Health Bar Footer (Fixed at bottom) ── -->
-			<div class="px-8 py-5 bg-[var(--surface-elevated)] border-t border-[var(--border-primary)] flex flex-col items-center gap-3 shrink-0">
+			<div class="px-8 py-5 bg-[var(--surface-form)] border-t border-[var(--border-primary)] flex flex-col items-center gap-3 shrink-0">
 				<div class="flex items-center gap-2">
-					<div class="flex h-5 w-5 items-center justify-center rounded-full bg-green-500/10 text-green-500 animate-pulse">
+					<div class="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--status-success)]/10 text-[var(--status-success)] animate-pulse">
 						<div class="w-1.5 h-1.5 rounded-full bg-current"></div>
 					</div>
 					<span class="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--text-secondary)]">Architecture Health {formData.architecture_health}%</span>
 				</div>
 				<div class="w-64 h-2 bg-[var(--border-primary)] rounded-full overflow-hidden shadow-inner">
 					<div 
-						class="h-full bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)] transition-all duration-1000 ease-out" 
+						class="h-full bg-[var(--status-success)] shadow-[0_0_15px_var(--status-success)] transition-all duration-1000 ease-out" 
 						style="width: {formData.architecture_health}%"
 					></div>
 				</div>

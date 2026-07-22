@@ -146,13 +146,13 @@
 	<DialogPortal>
 		<DialogOverlay class="z-[60]" />
 		<DialogContent 
-			class="z-[70] sm:max-w-xl p-0 overflow-hidden flex flex-col bg-[var(--surface-elevated)] rounded-2xl border border-[var(--border-primary)] shadow-2xl max-h-[80dvh]"
+			class="z-[70] sm:max-w-xl p-0 overflow-hidden flex flex-col bg-[var(--surface-form)] rounded-2xl border border-[var(--border-primary)] shadow-2xl max-h-[80dvh]"
 			showCloseButton={false}
 			interactOutsideBehavior="ignore"
 			escapeKeydownBehavior="ignore"
 		>
 			<!-- Header -->
-			<div class="px-6 py-4 border-b border-[var(--border-primary)] bg-[var(--surface-elevated)]/50">
+			<div class="px-6 py-4 border-b border-[var(--border-primary)] bg-[var(--surface-form)]">
 				<div class="flex items-center justify-between">
 					<div class="flex flex-col">
 						<h3 class="text-base font-bold" style="color: var(--text-primary)">Manage Models</h3>
@@ -234,7 +234,7 @@
 									{#if model.vision} <Icon name="eye" size={14} color="var(--status-info)" /> {/if}
 									{#if model.tools} <Icon name="wrench" size={14} color="var(--text-muted)" /> {/if}
 									{#if model.embedding} <Icon name="layers" size={14} color="var(--status-warning)" /> {/if}
-									{#if model.free} <span class="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 border border-green-500/20">Free</span> {/if}
+									{#if model.free} <span class="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-[var(--status-success)]/10 text-[var(--status-success)] border border-[var(--status-success)]/20">Free</span> {/if}
 								</div>
 							</button>
 						{/each}
@@ -248,7 +248,7 @@
 			</div>
 
 			<!-- Footer -->
-			<div class="px-6 py-4 border-t border-[var(--border-primary)] bg-[var(--surface-elevated)]/50 flex items-center justify-between">
+			<div class="px-6 py-4 border-t border-[var(--border-primary)] bg-[var(--surface-form)] flex items-center justify-between">
 				<button 
 					type="button"
 					onclick={toggleSelectAll}

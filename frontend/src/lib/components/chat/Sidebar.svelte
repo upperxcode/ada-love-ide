@@ -79,6 +79,9 @@
 		try {
 			const list = await GetWorkspaces() as WorkspaceItem[];
 			workspaces = list || [];
+			if (!activeWorkspace && workspaces.length > 0) {
+				activeWorkspace = workspaces[0].path;
+			}
 			await loadSessions();
 		} catch (e) {
 			console.error('[Sidebar] Failed to load:', e);
@@ -264,7 +267,7 @@
 																style="color: var(--text-primary)"
 															/>
 														{:else}
-															<button type="button" onclick={() => { activeSessionID = ch.id; }}
+															<button type="button" onclick={() => { activeWorkspace = ws.path; activeSessionID = ch.id; }}
 																ondblclick={() => startRename(ch)}
 																class="flex items-center gap-1.5 flex-1 min-w-0 text-left cursor-pointer">
 																<span class={cn('w-[8px] h-[8px] rounded-full shrink-0', activeSessionID === ch.id ? 'bg-[var(--accent-primary)]' : 'bg-[var(--text-faint)]')}></span>

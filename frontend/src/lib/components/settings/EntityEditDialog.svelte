@@ -182,7 +182,7 @@
 
 <Dialog bind:open onOpenChange={onOpenChange}>
 	<DialogPortal>
-		<DialogContent class="sm:max-w-[610px] max-h-[85dvh] flex flex-col p-0 overflow-hidden" showCloseButton={false}>
+		<DialogContent class="sm:max-w-[610px] max-h-[85dvh] flex flex-col p-0 gap-0 overflow-hidden bg-[var(--surface-form)]" showCloseButton={false}>
 			<!-- ── Custom header with color bar + icon/color pickers ── -->
 			<EntityHeader
 				icon={headerIcon}
@@ -195,8 +195,10 @@
 			/>
 
 			<!-- ── Form (row-based layout) ── -->
-			<div class="flex-1 overflow-y-auto">
+			<div class="flex-1 overflow-y-auto bg-[var(--surface-form)]">
 				{#each fields.filter(f => isFieldVisible(f.key)) as field (field.key)}
+					<!-- ── Spacer top ── -->
+					<div class="px-5 w-full h-[10px]"></div>
 					<!-- Full-width fields: label on top, component below -->
 					{#if field.fullWidth}
 						<div class="px-5 pb-3">
@@ -361,10 +363,12 @@
 						</div>
 					{/if}
 				{/each}
+			<!-- ── Spacer bottom ── -->
+			<div class="px-5 w-full h-[10px]"></div>
 			</div>
 
 			<!-- ── Footer actions ── -->
-			<div class="flex items-center justify-between px-5 py-3 border-t border-[var(--border-primary)] bg-[var(--surface-elevated)]">
+			<div class="flex items-center justify-between px-5 py-3 border-t border-[var(--border-primary)] bg-[var(--surface-form)]">
 				<div class="flex items-center gap-2">
 					{#if entityType === 'MCP'}
 						<button

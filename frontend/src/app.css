@@ -51,7 +51,8 @@
 	--surface-input: #0f0f11;
 	--surface-hover: #18181b;
 	--surface-active: #27272a;
-	--surface-elevated: #18181b;
+	--surface-elevated: var(--bg-elevated);
+	--surface-form: var(--bg-tertiary);
 
 	--status-success: #22c55e;
 	--status-warning: #eab308;
@@ -75,6 +76,7 @@
 	--color-destructive: var(--status-error);
 	--color-ring: var(--accent-primary);
 	--color-border: var(--border-primary);
+	--color-form-surface: var(--bg-tertiary);
 
 	/* ── Radius ── */
 	--radius: 0.625rem;

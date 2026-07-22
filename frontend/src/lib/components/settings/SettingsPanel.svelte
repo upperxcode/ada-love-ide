@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
 	import { Icon } from '$lib/components/icon';
-	import { TooltipProvider } from '$lib/components/ui/tooltip';
+	import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '$lib/components/ui/tooltip';
 	import CardList from './CardList.svelte';
 	import EntityEditDialog from './EntityEditDialog.svelte';
 	import SpecWizardDialog from './SpecWizardDialog.svelte';
@@ -162,26 +162,61 @@ import WorkspaceDialog from './WorkspaceDialog.svelte';
 		</nav>
 
 		<!-- ── Settings Content (right area) ── -->
-		<div class="flex flex-1 flex-col min-w-0">
+		<div class="flex flex-1 flex-col min-w-0 overflow-y-auto bg-[var(--bg-primary)]">
 			<!-- Content header -->
 			<div class="flex items-center justify-between border-b border-[var(--border-primary)] px-5 pt-5 pb-3">
-				<h3 class="text-sm font-semibold" style="color: var(--text-primary)">
-					{categories.find((c) => c.id === activeCategory)?.label}
-				</h3>
+				<div class="flex items-center gap-2">
+					<h3 class="text-sm font-semibold" style="color: var(--text-primary)">
+						{categories.find((c) => c.id === activeCategory)?.label}
+					</h3>
+					{#if activeCategory !== 'general'}
+						<span class="text-[11px] font-medium" style="color: var(--text-muted)">
+							({currentItems.length} {currentItems.length === 1 ? 'item' : 'items'})
+						</span>
+					{/if}
+				</div>
 
-				<button
-					type="button"
-					onclick={onClose}
-					class={cn(
-						'flex items-center justify-center w-7 h-7 rounded-md',
-						'transition-colors cursor-pointer',
-						'hover:bg-[var(--surface-hover)]'
-					)}
-					style="color: var(--text-muted)"
-					title="Close settings"
-				>
-					<Icon name="x" size={15} />
-				</button>
+				<div class="flex items-center gap-1">
+					{#if activeCategory !== 'general'}
+						<Tooltip>
+							<TooltipTrigger>
+								{#snippet child({ props })}
+									<button
+										{...props}
+										type="button"
+										onclick={openNew}
+										class={cn(
+											'flex items-center gap-1 px-2.5 py-1 rounded-lg',
+											'text-[11px] font-medium cursor-pointer',
+											'transition-colors',
+											'hover:bg-[var(--surface-hover)]'
+										)}
+										style="color: var(--text-secondary)"
+									>
+										<Icon name="plus" size={12} />
+										new
+									</button>
+								{/snippet}
+							</TooltipTrigger>
+							<TooltipContent side="bottom">
+								Add new {categories.find((c) => c.id === activeCategory)?.label?.toLowerCase() ?? 'item'}
+							</TooltipContent>
+						</Tooltip>
+					{/if}
+					<button
+						type="button"
+						onclick={onClose}
+						class={cn(
+							'flex items-center justify-center w-7 h-7 rounded-md',
+							'transition-colors cursor-pointer',
+							'hover:bg-[var(--surface-hover)]'
+						)}
+						style="color: var(--text-muted)"
+						title="Close settings"
+					>
+						<Icon name="x" size={15} />
+					</button>
+				</div>
 			</div>
 
 			<!-- ── Content body ── -->

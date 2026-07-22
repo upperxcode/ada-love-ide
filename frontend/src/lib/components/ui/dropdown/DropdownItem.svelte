@@ -14,9 +14,9 @@
 	type="button"
 	class={cn(
 		'relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm',
-		'text-zinc-400 outline-none transition-colors',
-		'hover:bg-zinc-800 hover:text-zinc-200',
-		'focus:bg-zinc-800 focus:text-zinc-200',
+		'text-[var(--text-secondary)] outline-none transition-colors',
+		'hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]',
+		'focus:bg-[var(--surface-hover)] focus:text-[var(--text-primary)]',
 		className
 	)}
 	onclick={onclick}

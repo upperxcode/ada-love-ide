@@ -179,7 +179,7 @@
 								disabled={testingStates[keyHash(key)] === 'loading'}
 								class={cn(
 									"flex h-8 w-8 items-center justify-center rounded-md transition-all cursor-pointer",
-									testingStates[keyHash(key)] === 'success' ? "bg-green-500/10 text-green-500" :
+									testingStates[keyHash(key)] === 'success' ? "bg-[var(--status-success)]/10 text-[var(--status-success)]" :
 									testingStates[keyHash(key)] === 'error' ? "bg-red-500/10 text-red-500" :
 									"hover:bg-[var(--surface-hover)] text-[var(--text-faint)] hover:text-[var(--text-primary)]"
 								)}

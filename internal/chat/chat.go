@@ -400,6 +400,55 @@ func (c *Chat) Stop(sessionID string) {
 	}
 }
 
+// InferQuick faz uma inferência rápida sem sessão, retornando o texto completo.
+func (c *Chat) InferQuick(ctx context.Context, prompt, model string) (string, error) {
+	if c.streamingClient == nil {
+		return "", fmt.Errorf("streaming client not available")
+	}
+
+	tokenChan := make(chan string, 100)
+	var resp strings.Builder
+	done := make(chan error, 1)
+
+	go func() {
+		for token := range tokenChan {
+			if token == "" {
+				done <- nil
+				return
+			}
+			resp.WriteString(token)
+		}
+	}()
+
+	c.streamingClient.SetEmitter(stream.EventEmitter(func(eventName string, data ...interface{}) {
+		switch eventName {
+		case "token-received":
+			if len(data) > 0 {
+				if m, ok := data[0].(map[string]interface{}); ok {
+					if token, ok := m["token"].(string); ok {
+						select {
+						case tokenChan <- token:
+						case <-ctx.Done():
+						}
+					}
+				}
+			}
+		case "stream-finished":
+			close(tokenChan)
+		}
+	}))
+
+	if err := c.streamingClient.GenerateStream(ctx, "infer-"+time.Now().Format("150405"), prompt, model); err != nil {
+		return "", err
+	}
+
+	if err := <-done; err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(resp.String()), nil
+}
+
 // SendStreamingToChannel inicia o streaming e envia tokens para o canal
 func (c *Chat) SendStreamingToChannel(ctx context.Context, sessionID string, tokenChan chan<- string) error {
 	if c.emitter == nil {

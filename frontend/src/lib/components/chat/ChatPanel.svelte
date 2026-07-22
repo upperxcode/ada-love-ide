@@ -336,12 +336,10 @@
 
 	async function initSession(workspacePath: string, workerName = 'default-worker') {
 		try {
-			const wsPath = workspacePath || 'default-workspace';
-			const sess = await CreateSessionWithConfig(wsPath, workerName, activeSessionID);
+			const sess = await CreateSessionWithConfig(workspacePath, workerName, activeSessionID);
 			await loadSession(sess.id);
 		} catch (e) {
 			console.error('[ChatPanel] Failed to create session:', e);
-			sessionID = 'fallback-session';
 		}
 	}
 

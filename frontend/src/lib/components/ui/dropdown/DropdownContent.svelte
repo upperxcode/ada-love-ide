@@ -18,8 +18,8 @@
 
 <div
 	class={cn(
-		'absolute top-full z-50 mt-1 min-w-[8rem] overflow-hidden rounded-lg border border-zinc-800',
-		'bg-zinc-900 p-1 text-zinc-300 shadow-md dark:bg-zinc-900',
+		'absolute top-full z-50 mt-1 min-w-[8rem] overflow-hidden rounded-lg border border-[var(--border-primary)]',
+		'bg-[var(--bg-tertiary)] p-1 text-[var(--text-secondary)] shadow-md',
 		'animate-in fade-in-0 zoom-in-95',
 		alignClasses[align],
 		className

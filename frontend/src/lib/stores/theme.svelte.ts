@@ -144,7 +144,7 @@ function applyStyleTheme(theme: StyleTheme) {
 .shadow-md { --tw-shadow: ${sMd} !important; }
 .shadow-lg { --tw-shadow: ${sLg} !important; }
 /* Interactive lift/press — only active when theme sets --hover-lift or --active-press */
-button:not(:disabled):hover, [role="button"]:not(:disabled):hover { translate: var(--hover-lift, 0 0); }
+button:not(:disabled):hover, [role="button"]:not(:disabled):hover, .group:hover, [class*="group/"]:hover { translate: var(--hover-lift, 0 0); }
 button:not(:disabled):active, [role="button"]:not(:disabled):active { translate: var(--active-press, 0 0); }
 `;
 

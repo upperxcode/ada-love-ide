@@ -93,6 +93,6 @@
 	{/if}
 
 	{#if gitOpen}
-		<GitPanel onClose={() => gitOpen = false} {activeWorkspace} />
+		<GitPanel onClose={() => gitOpen = false} workspacePath={activeWorkspace} activeSessionID={activeSessionID} />
 	{/if}
 </div>

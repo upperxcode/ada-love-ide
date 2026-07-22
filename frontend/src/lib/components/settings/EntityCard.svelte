@@ -40,6 +40,7 @@
 		'ring-1 ring-[var(--border-primary)]',
 		'hover:ring-[var(--border-hover)]',
 		'bg-[var(--bg-secondary)]',
+		'shadow-sm',
 		className
 	)}
 >
