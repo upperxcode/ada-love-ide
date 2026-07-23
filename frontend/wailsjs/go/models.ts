@@ -118,6 +118,27 @@ export namespace agent {
 
 }
 
+export namespace cliworker {
+	
+	export class ModelInfo {
+	    id: string;
+	    name: string;
+	    provider_name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ModelInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.provider_name = source["provider_name"];
+	    }
+	}
+
+}
+
 export namespace command {
 	
 	export class SubCommandInfo {
@@ -526,6 +547,7 @@ export namespace provider {
 	    type_connection: string;
 	    strategy: string;
 	    models: Record<string, ModelSettings>;
+	    worker: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProviderConfig(source);
@@ -540,6 +562,7 @@ export namespace provider {
 	        this.type_connection = source["type_connection"];
 	        this.strategy = source["strategy"];
 	        this.models = this.convertValues(source["models"], ModelSettings, true);
+	        this.worker = source["worker"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -856,6 +879,54 @@ export namespace specwizardmgr {
 
 }
 
+export namespace storage {
+	
+	export class SessionAttachment {
+	    id: number;
+	    session_id: string;
+	    file_path: string;
+	    file_name: string;
+	    file_size: number;
+	    mime_type: string;
+	    // Go type: time
+	    created_at: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new SessionAttachment(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.session_id = source["session_id"];
+	        this.file_path = source["file_path"];
+	        this.file_name = source["file_name"];
+	        this.file_size = source["file_size"];
+	        this.mime_type = source["mime_type"];
+	        this.created_at = this.convertValues(source["created_at"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
 export namespace tool {
 	
 	export class ToolProfile {
@@ -899,6 +970,27 @@ export namespace tool {
 
 }
 
+export namespace urlworker {
+	
+	export class ModelInfo {
+	    id: string;
+	    name: string;
+	    provider_name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ModelInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.provider_name = source["provider_name"];
+	    }
+	}
+
+}
+
 export namespace worker {
 	
 	export class WorkerConfig {
@@ -910,7 +1002,10 @@ export namespace worker {
 	    color: string;
 	    connection_type: string;
 	    connection_name: string;
-	    connection_config: string;
+	    command: string;
+	    arguments: string;
+	    models_command: string;
+	    environment: string;
 	    inherit_folders: boolean;
 	    inherit_knowledge: boolean;
 	    inherit_skills: boolean;
@@ -931,7 +1026,10 @@ export namespace worker {
 	        this.color = source["color"];
 	        this.connection_type = source["connection_type"];
 	        this.connection_name = source["connection_name"];
-	        this.connection_config = source["connection_config"];
+	        this.command = source["command"];
+	        this.arguments = source["arguments"];
+	        this.models_command = source["models_command"];
+	        this.environment = source["environment"];
 	        this.inherit_folders = source["inherit_folders"];
 	        this.inherit_knowledge = source["inherit_knowledge"];
 	        this.inherit_skills = source["inherit_skills"];
@@ -959,12 +1057,17 @@ export namespace workspace {
 	    enabled: boolean;
 	    color: string;
 	    icon: string;
+	    max_prompt: number;
+	    max_content: number;
+	    commit: boolean;
 	    max_prompt_send: number;
 	    commit_changes: boolean;
 	    max_context_length: number;
 	    spec_wizard: string;
 	    spec_wizard_id: string;
 	    agents: string[];
+	    summary: string;
+	    summary_hash: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new WorkspaceConfig(source);
@@ -986,12 +1089,17 @@ export namespace workspace {
 	        this.enabled = source["enabled"];
 	        this.color = source["color"];
 	        this.icon = source["icon"];
+	        this.max_prompt = source["max_prompt"];
+	        this.max_content = source["max_content"];
+	        this.commit = source["commit"];
 	        this.max_prompt_send = source["max_prompt_send"];
 	        this.commit_changes = source["commit_changes"];
 	        this.max_context_length = source["max_context_length"];
 	        this.spec_wizard = source["spec_wizard"];
 	        this.spec_wizard_id = source["spec_wizard_id"];
 	        this.agents = source["agents"];
+	        this.summary = source["summary"];
+	        this.summary_hash = source["summary_hash"];
 	    }
 	}
 	export class WorkspaceTemplate {

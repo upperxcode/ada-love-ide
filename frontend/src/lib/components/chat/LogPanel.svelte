@@ -86,6 +86,28 @@
 	function toggleAutoScroll() {
 		autoScroll = !autoScroll;
 	}
+
+	function copyLogs() {
+		const text = logs.map(entry => {
+			let line = `[${entry.time}] [${entry.type.toUpperCase()}] ${entry.summary || entry.event}`;
+			if (entry.detail && entry.detail !== entry.summary) {
+				line += `\n  ${entry.detail.replace(/\n/g, '\n  ')}`;
+			}
+			return line;
+		}).join('\n');
+
+		navigator.clipboard.writeText(text).catch(() => {
+			// fallback for older browsers
+			const ta = document.createElement('textarea');
+			ta.value = text;
+			ta.style.position = 'fixed';
+			ta.style.opacity = '0';
+			document.body.appendChild(ta);
+			ta.select();
+			document.execCommand('copy');
+			document.body.removeChild(ta);
+		});
+	}
 </script>
 
 <div class="flex flex-col h-full w-[340px] shrink-0 border-l" style="background: var(--bg-primary); border-color: var(--border-primary)">
@@ -97,6 +119,11 @@
 				style="color: {autoScroll ? 'var(--accent-primary)' : 'var(--text-faint)'}"
 				title="Auto-scroll">
 				<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+			</button>
+			<button type="button" onclick={copyLogs}
+				class="flex items-center justify-center w-6 h-6 rounded transition-colors cursor-pointer hover:bg-[var(--surface-hover)]"
+				style="color: var(--text-faint)" title="Copy logs">
+				<Icon name="copy" size={12} />
 			</button>
 			<button type="button" onclick={clearLogs}
 				class="flex items-center justify-center w-6 h-6 rounded transition-colors cursor-pointer hover:bg-[var(--surface-hover)]"

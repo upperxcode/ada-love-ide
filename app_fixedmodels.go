@@ -2,46 +2,33 @@ package main
 
 import "fmt"
 
-// GetFixedModels retorna todos os modelos fixos.
-func (a *App) GetFixedModels() []map[string]any {
-	fmt.Println("[FixedModel] GetFixedModels called")
-	result := a.eng.DB.ListFixedModels()
-	if result == nil {
-		// Try to read directly from DB as fallback
-		fmt.Println("[FixedModel] ListFixedModels returned nil, trying direct query...")
-		db := a.eng.DB.DB()
-		rows, err := db.Query("SELECT id, name, provider, model FROM fixed_models")
-		if err != nil {
-			fmt.Printf("[FixedModel] Direct query error: %v\n", err)
-			return nil
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var id int64
-			var name, provider, model string
-			if err := rows.Scan(&id, &name, &provider, &model); err != nil {
-				fmt.Printf("[FixedModel] Direct scan error: %v\n", err)
-				continue
-			}
-			fmt.Printf("[FixedModel] Direct hit: id=%d name=%s provider=%s model=%s\n", id, name, provider, model)
-		}
-		return nil
+// GetFixedModels returns all fixed models using per-name lookup.
+func (a *App) GetFixedModels() ([]map[string]any, error) {
+	fmt.Println("[FixedModel] GetFixedModels called (per-name)")
+	result := []map[string]any{}
+	knownNames := []string{"Classifier", "embedding", "image", "spec", "tinybrain"}
+	for _, name := range knownNames {
+		provider, model, tools := a.eng.DB.GetFixedModel(name)
+		fmt.Printf("[FixedModel] " + "%s -> provider=%s model=%s tools=%v\n", name, provider, model, tools)
+		result = append(result, map[string]any{
+			"name":     name,
+			"provider": provider,
+			"model":    model,
+			"tools":    tools,
+		})
 	}
-	fmt.Printf("[FixedModel] GetFixedModels returning %d items\n", len(result))
-	return result
+	fmt.Printf("[FixedModel] Returning %d items\n", len(result))
+	return result, nil
 }
 
-// SaveFixedModel salva ou atualiza um modelo fixo.
+// SaveFixedModel saves or updates a fixed model.
 func (a *App) SaveFixedModel(name, provider, model string, tools []string) {
 	a.eng.DB.SaveFixedModel(name, provider, model, tools)
-	_ = model
-	_ = tools
-	fmt.Printf("[FixedModel] Saved: %s (provider=%s, model=%s, tools=%v)\n", name, provider, model, tools)
+	fmt.Printf("[FixedModel] Saved: " + "%s (provider=%s, model=%s, tools=%v)\n", name, provider, model, tools)
 }
 
-// DeleteFixedModel remove um modelo fixo pelo nome.
+// DeleteFixedModel deletes a fixed model by name.
 func (a *App) DeleteFixedModel(name string) {
 	a.eng.DB.DeleteFixedModel(name)
-	fmt.Printf("[FixedModel] Deleted: %s\n", name)
+	fmt.Printf("[FixedModel] Deleted: " + "%s\n", name)
 }
-

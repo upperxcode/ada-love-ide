@@ -10,6 +10,7 @@ import (
 	"ada-love-ide/internal/config/workspace"
 	"ada-love-ide/internal/db"
 	"ada-love-ide/internal/specwizardmgr"
+	"ada-love-ide/internal/summary"
 
 	storage "github.com/ada-love-ai/storage/storage"
 )
@@ -34,6 +35,15 @@ func (a *App) SaveWorkspace(ws workspace.WorkspaceConfig) {
 		ws.Path = "workspace-" + time.Now().Format("20060102150405")
 	}
 	a.eng.DB.AddWorkspace(ws)
+
+	// Reindexa o knowledge index se disponível
+	if a.eng.KnowledgeIndex != nil {
+		wsID := a.eng.DB.WorkspaceIDByPath(ws.Path)
+		if wsID > 0 {
+			a.eng.KnowledgeIndex.IndexWorkspace(context.Background(), wsID, ws.Knowledge)
+			fmt.Printf("[workspace] Reindexed %d knowledge items for %q\n", len(ws.Knowledge), ws.Title)
+		}
+	}
 
 	if ws.SpecWizardID != "" {
 		ensureSWMCP(a.eng.DB, ws)
@@ -228,4 +238,72 @@ func (a *App) GetWorkspaceDir(workspacePath string) string {
 // GetSessionDir retorna o diretório de trabalho da sessão.
 func (a *App) GetSessionDir(sessionID string) string {
 	return a.eng.ResolveSessionDir(sessionID)
+}
+
+// ensureWorkspaceSummary verifica se o workspace precisa de um summary atualizado.
+// Se o summary estiver vazio ou o hash das fontes tiver mudado, regenera em background.
+func (a *App) ensureWorkspaceSummary(workspacePath string) {
+	ws, err := a.eng.DB.GetWorkspace(workspacePath)
+	if err != nil {
+		return
+	}
+
+	wsDir := ws.Path
+	if len(ws.Folders) > 0 && ws.Folders[0] != "" {
+		wsDir = ws.Folders[0]
+	}
+
+	// Computa o hash atual das fontes
+	_, currentHash, err := summary.GenerateFromWorkspace(wsDir)
+	if err != nil {
+		return
+	}
+
+	// Se já tem summary e o hash bate, nada a fazer
+	if ws.Summary != "" && ws.SummaryHash == currentHash {
+		return
+	}
+
+	// Gera novo summary com o hash atualizado
+	summaryText, _, err := summary.GenerateFromWorkspace(wsDir)
+	if err != nil {
+		return
+	}
+
+	ws.Summary = summaryText
+	ws.SummaryHash = currentHash
+	a.eng.DB.AddWorkspace(ws)
+}
+
+// EnsureWorkspaceSummary verifica e atualiza o summary se necessário (Wails binding público).
+func (a *App) EnsureWorkspaceSummary(path string) error {
+	go a.ensureWorkspaceSummary(path)
+	return nil
+}
+
+// GenerateWorkspaceSummary gera um resumo textual do workspace
+// lendo as fontes (AGENT.md, README.md, manifesto, estrutura de diretórios).
+// Salva o resumo no banco e retorna o texto gerado.
+func (a *App) GenerateWorkspaceSummary(path string) (string, error) {
+	ws, err := a.eng.DB.GetWorkspace(path)
+	if err != nil {
+		return "", fmt.Errorf("workspace %s não encontrado: %w", path, err)
+	}
+
+	wsDir := ws.Path
+	if len(ws.Folders) > 0 && ws.Folders[0] != "" {
+		wsDir = ws.Folders[0]
+	}
+
+	summaryText, sourceHash, err := summary.GenerateFromWorkspace(wsDir)
+	if err != nil {
+		return "", fmt.Errorf("falha ao gerar resumo: %w", err)
+	}
+
+	ws.Summary = summaryText
+	ws.SummaryHash = sourceHash
+	a.eng.DB.AddWorkspace(ws)
+
+	fmt.Printf("[workspace] Summary generated for %s (hash: %s)\n", ws.Title, sourceHash)
+	return summaryText, nil
 }

@@ -36,6 +36,7 @@ type Store struct {
 	mcps             *storage.McpStore
 	fixedModels      *storage.FixedModelStore
 	specWizards      *storage.SpecWizardStore
+	attachments      *storage.SessionAttachmentStore
 
 	templates  map[int]workspace.WorkspaceTemplate
 	mcpServers map[string]mcp.MCPServerUI
@@ -80,6 +81,7 @@ func New(dbPath string) (*Store, error) {
 		mcps:             storage.NewMcpStore(db),
 		fixedModels:      storage.NewFixedModelStore(db),
 		specWizards:      storage.NewSpecWizardStore(db),
+		attachments:      storage.NewSessionAttachmentStore(db),
 		templates:        map[int]workspace.WorkspaceTemplate{},
 		mcpServers:       map[string]mcp.MCPServerUI{},
 		sidebarVisible:   true,
@@ -118,11 +120,23 @@ func (s *Store) FixedModels() *storage.FixedModelStore { return s.fixedModels }
 
 func (s *Store) Models() *storage.ProviderModelStore { return s.models }
 
+func (s *Store) Attachments() *storage.SessionAttachmentStore { return s.attachments }
+
 func (s *Store) Providers() *storage.ProviderStore { return s.providers }
 
 func (s *Store) WorkspaceStore() *storage.WorkspaceStore { return s.workspaces }
 
 func (s *Store) WorkerStore() *storage.WorkerStore { return s.workers }
+
+// WorkspaceIDByPath retorna o ID numérico (int64) de um workspace dado seu path.
+func (s *Store) WorkspaceIDByPath(path string) int64 {
+	ctx := context.Background()
+	w, err := s.workspaces.GetWorkspaceByPath(ctx, path)
+	if err != nil {
+		return 0
+	}
+	return w.ID
+}
 
 func (s *Store) loadConfigDefaults(ctx context.Context) {
 	if v, err := s.config.GetConfig(ctx, "active_workspace"); err == nil {

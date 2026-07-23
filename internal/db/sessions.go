@@ -233,12 +233,17 @@ func (s *Store) upsertWorkspace(ctx context.Context, ws workspace.WorkspaceConfi
 		Enabled:          ws.Enabled,
 		Color:            ws.Color,
 		Icon:             ws.Icon,
+		MaxPrompt:        ws.MaxPrompt,
+		MaxContent:       ws.MaxContent,
+		Commit:           ws.Commit,
 		MaxPromptSend:    ws.MaxPromptSend,
 		CommitChanges:    ws.CommitChanges,
 		MaxContextLength: ws.MaxContextLength,
 		Personality:      sql.NullString{String: ws.Personality, Valid: ws.Personality != ""},
 		RoutingRules:     sql.NullString{String: ws.RoutingRules, Valid: ws.RoutingRules != ""},
 		SpecWizardID:     sql.NullString{String: ws.SpecWizardID, Valid: ws.SpecWizardID != ""},
+		Summary:          sql.NullString{String: ws.Summary, Valid: ws.Summary != ""},
+		SummaryHash:      sql.NullString{String: ws.SummaryHash, Valid: ws.SummaryHash != ""},
 	}
 
 	// Tenta carregar pelo path primeiro
@@ -418,12 +423,17 @@ func adaptWorkspaceToInternal(ctx context.Context, s *Store, w *storage.Workspac
 		Enabled:          w.Enabled,
 		Color:            w.Color,
 		Icon:             w.Icon,
+		MaxPrompt:        w.MaxPrompt,
+		MaxContent:       w.MaxContent,
+		Commit:           w.Commit,
 		MaxPromptSend:    w.MaxPromptSend,
 		CommitChanges:    w.CommitChanges,
 		MaxContextLength: w.MaxContextLength,
 		SpecWizard:       "",
 		SpecWizardID:     w.SpecWizardID.String,
 		Agents:           agentNames,
+		Summary:          w.Summary.String,
+		SummaryHash:      w.SummaryHash.String,
 	}
 }
 
@@ -498,7 +508,9 @@ func (s *Store) PutWorker(wc worker.WorkerConfig) {
 		Persona:              sql.NullString{String: wc.Persona, Valid: wc.Persona != ""},
 		ResponseLanguage:     wc.Language,
 		ConnectionType:       wc.ConnectionType,
-		Command:              sql.NullString{String: wc.ConnectionConfig, Valid: wc.ConnectionConfig != ""},
+		Command:              sql.NullString{String: wc.Command, Valid: wc.Command != ""},
+		Arguments:            sql.NullString{String: wc.EncodeArguments(), Valid: wc.Arguments != "" || wc.ModelsCommand != ""},
+		Environment:          sql.NullString{String: wc.Environment, Valid: wc.Environment != ""},
 		Color:                wc.Color,
 		Icon:                 wc.Icon,
 		InheritanceFolders:   wc.InheritFolders,
@@ -525,6 +537,7 @@ func (s *Store) GetWorker(name string) (worker.WorkerConfig, error) {
 }
 
 func adaptWorkerToInternal(w *storage.Worker) worker.WorkerConfig {
+	args, modelsCmd := worker.DecodeArguments(w.Arguments.String)
 	return worker.WorkerConfig{
 		ID:               w.ID,
 		Name:             w.Name,
@@ -533,12 +546,31 @@ func adaptWorkerToInternal(w *storage.Worker) worker.WorkerConfig {
 		Icon:             w.Icon,
 		Color:            w.Color,
 		ConnectionType:   w.ConnectionType,
-		ConnectionConfig: w.Command.String,
+		Command:          w.Command.String,
+		Arguments:        args,
+		ModelsCommand:    modelsCmd,
+		Environment:      w.Environment.String,
+		ConnectionName:   connectionNameForType(w.ConnectionType),
 		InheritFolders:   w.InheritanceFolders,
 		InheritKnowledge: w.InheritanceKnowledge,
 		InheritSkills:    w.InheritanceSkills,
 		InheritTools:     w.InheritanceTools,
 		InheritPersona:   w.InheritancePersona,
+	}
+}
+
+func connectionNameForType(ct string) string {
+	switch ct {
+	case "ada":
+		return "Ada"
+	case "cli":
+		return "CLI"
+	case "url":
+		return "URL/API"
+	case "opencode_serve":
+		return "OpenCode Server"
+	default:
+		return ""
 	}
 }
 

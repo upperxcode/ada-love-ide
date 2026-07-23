@@ -109,7 +109,7 @@ Return ONLY the commit message, nothing else.`, changedFiles, diff)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	msg, err := a.eng.Chat.InferQuick(ctx, prompt, model)
+	msg, err := a.eng.Chat.QuickGenerate(ctx, prompt, model)
 	if err != nil {
 		fmt.Printf("[GitInferCommitMessage] LLM error: %v, falling back to heuristic\n", err)
 		return a.eng.Git.InferCommitMessage(repoPath)

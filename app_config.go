@@ -52,11 +52,21 @@ func (a *App) SetAdaConfig(cfg ada.AdaConfig) {
 		a.eng.DB.ReplaceMCPServers(cfg.MCPServers)
 	}
 
-	// Fixed models são leves e seguros de persistir
-	a.eng.DB.SaveFixedModel("embedding", cfg.EmbeddingProvider, cfg.EmbeddingModel, nil)
-	a.eng.DB.SaveFixedModel("image", cfg.ImageProvider, cfg.ImageModel, nil)
-	a.eng.DB.SaveFixedModel("spec", cfg.SpecProvider, cfg.SpecModel, cfg.SpecTools)
-	a.eng.DB.SaveFixedModel("tinybrain", cfg.TinyBrainProvider, cfg.TinyBrainModel, cfg.TinyBrainTools)
+	// Fixed models: só persiste se o provider veio preenchido, para evitar
+	// que chamadas parciais (ex: frontend salvar só active_session_id)
+	// zerem as configurações existentes.
+	if cfg.EmbeddingProvider != "" {
+		a.eng.DB.SaveFixedModel("embedding", cfg.EmbeddingProvider, cfg.EmbeddingModel, nil)
+	}
+	if cfg.ImageProvider != "" {
+		a.eng.DB.SaveFixedModel("image", cfg.ImageProvider, cfg.ImageModel, nil)
+	}
+	if cfg.SpecProvider != "" {
+		a.eng.DB.SaveFixedModel("spec", cfg.SpecProvider, cfg.SpecModel, cfg.SpecTools)
+	}
+	if cfg.TinyBrainProvider != "" {
+		a.eng.DB.SaveFixedModel("tinybrain", cfg.TinyBrainProvider, cfg.TinyBrainModel, cfg.TinyBrainTools)
+	}
 }
 
 var _ = context.Background

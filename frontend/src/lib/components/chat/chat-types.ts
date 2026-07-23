@@ -17,6 +17,16 @@ export interface ThinkingSection {
   content: string;
 }
 
+export interface SessionAttachment {
+  id: number;
+  session_id: string;
+  file_path: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  created_at: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -24,6 +34,7 @@ export interface ChatMessage {
   thinkingContent?: string;
   thinkingSections?: ThinkingSection[];
   actions?: ActionLog[];
+  attachments?: SessionAttachment[];
 }
 
 /**

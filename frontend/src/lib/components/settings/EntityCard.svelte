@@ -121,7 +121,7 @@
 	</div>
 
 		<!-- ── Body: up to 3 info lines ── -->
-		{#if item.description || item.provider || item.model || item.tags || item.active !== undefined || item.connect_type || item.enabled !== undefined || item.type_connection || item.api_url || item.strategy || item.language || item.connection_type || item.expert_language_plugin || item.architecture || item.stack_plugin}
+		{#if item.description || item.provider || item.model || item.tags || item.active !== undefined || item.connect_type || item.enabled !== undefined || item.type_connection || item.api_url || item.strategy || item.language || item.connection_type || item.expert_language_plugin || item.architecture || item.stack_plugin || item.command}
 			<div class="px-3 py-2 flex flex-col gap-1">
 				{#if item.description}
 					<p class="text-[11px] leading-relaxed line-clamp-1" style="color: var(--text-muted)">
@@ -205,13 +205,35 @@
 							</span>
 						</div>
 					{/if}
-					{#if item.connection_type && !item.connect_type}
+						{#if item.connection_type && !item.connect_type}
 						<div class="flex items-center gap-1.5">
 							<span class="text-[9px] font-medium uppercase tracking-wider" style="color: var(--text-faint)">
 								Bridge
 							</span>
 							<span class="text-[10px] truncate uppercase" style="color: var(--text-muted)">
 								{item.connection_type}
+							</span>
+						</div>
+					{/if}
+
+					<!-- CLI worker specific -->
+					{#if item.connection_type === 'cli' && item.command}
+						<div class="flex items-center gap-1.5">
+							<span class="text-[9px] font-medium uppercase tracking-wider" style="color: var(--text-faint)">
+								Command
+							</span>
+							<span class="text-[10px] truncate font-mono" style="color: var(--text-muted)">
+								{item.command}
+							</span>
+						</div>
+					{/if}
+					{#if item.connection_type === 'cli' && item.arguments}
+						<div class="flex items-center gap-1.5">
+							<span class="text-[9px] font-medium uppercase tracking-wider" style="color: var(--text-faint)">
+								Args
+							</span>
+							<span class="text-[10px] truncate font-mono" style="color: var(--text-muted)">
+								{item.arguments}
 							</span>
 						</div>
 					{/if}

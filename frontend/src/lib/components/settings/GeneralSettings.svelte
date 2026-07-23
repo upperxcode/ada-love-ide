@@ -319,24 +319,32 @@ $effect(() => {
     <div class="divide-y divide-[var(--border-primary)]">
       {#each FIXED_MODEL_NAMES as name}
         {@const fm = fixedModels[name]}
-        <div class="px-4 py-3">
+        <div class="px-4 py-3 bg-[var(--surface-hover)]/40">
           <div class="flex items-center justify-between cursor-pointer" onclick={() => toggleOpen(name)}>
             <span class="text-[12px] font-medium" style="color: var(--text-primary)">{displayName(name)}</span>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 min-w-0">
               {#if fm?.provider}
-                <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-hover)]" style="color: var(--text-muted)">{fm.provider}/{fm.model || '?'}</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-hover)] truncate max-w-[160px]" style="color: var(--text-muted)">{fm.provider}/{fm.model || '?'}</span>
               {/if}
-              <Icon name={openStates[name] ? 'chevron-up' : 'chevron-down'} size={14} style="color: var(--text-muted)" />
+              <span class="shrink-0"><Icon name={openStates[name] ? 'chevron-up' : 'chevron-down'} size={14} style="color: var(--text-muted)" /></span>
             </div>
           </div>
           {#if openStates[name] && fm}
             <div class="mt-3 flex flex-col gap-3">
-              <SettingRow label="Provider" description="AI provider for this model">
-                <ThemedSelect value={fm.provider} onValueChange={(v) => { fm.provider = v; fm.model = ''; fixedModels = { ...fixedModels }; }} options={providerOptions} placeholder="Not set" class="w-36" />
-              </SettingRow>
-              <SettingRow label="Model" description="Model identifier">
-                <ThemedSelect value={fm.model} onValueChange={(v) => { fm.model = v; fixedModels = { ...fixedModels }; }} options={getModelOptions(fm.provider)} placeholder="Not set" class="w-36" />
-              </SettingRow>
+              <div class="flex flex-col gap-1 py-2">
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-[12px] font-medium leading-tight" style="color: var(--text-primary)">Provider</span>
+                  <span class="text-[11px] leading-tight" style="color: var(--text-muted)">AI provider for this model</span>
+                </div>
+                <ThemedSelect value={fm.provider} onValueChange={(v) => { fm.provider = v; fm.model = ''; fixedModels = { ...fixedModels }; }} options={providerOptions} placeholder="Not set" class="w-full" />
+              </div>
+              <div class="flex flex-col gap-1 py-2">
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-[12px] font-medium leading-tight" style="color: var(--text-primary)">Model</span>
+                  <span class="text-[11px] leading-tight" style="color: var(--text-muted)">Model identifier</span>
+                </div>
+                <ThemedSelect value={fm.model} onValueChange={(v) => { fm.model = v; fixedModels = { ...fixedModels }; }} options={getModelOptions(fm.provider)} placeholder="Not set" class="w-full" />
+              </div>
               <div class="border-t border-[var(--border-primary)] pt-2">
                 <div class="flex items-center justify-between cursor-pointer" onclick={() => toggleToolsOpen(name)}>
                   <span class="text-[11px] font-medium" style="color: var(--text-muted)">Tools ({(fm.tools || []).length})</span>

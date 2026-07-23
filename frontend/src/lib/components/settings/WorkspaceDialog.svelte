@@ -43,6 +43,13 @@
 		enabled: true,
 		color: '#3b82f6',
 		icon: '🏢',
+		max_prompt: 4096,
+		max_content: 8192,
+		commit: true,
+		max_prompt_send: 0,
+		commit_changes: false,
+		max_context_length: 0,
+		summary: '',
 	});
 
 	// ── Option catalogs from backend ──
@@ -59,6 +66,9 @@
 		let agentsOpen = $state(false);
 		let skillsOpen = $state(false);
 		let toolsOpen = $state(false);
+		let extraConfigOpen = $state(false);
+	let summaryOpen = $state(false);
+	let generatingSummary = $state(false);
 
 	// ── New item state (removed: knowledge files only via Browse) ──
 
@@ -90,6 +100,7 @@
 				skills: entity.skills ?? [],
 				tools: entity.tools ?? [],
 				spec_wizard_id: entity.spec_wizard_id ?? '',
+				summary: entity.summary ?? '',
 			};
 			// Auto-expand workers section if flagged from sidebar "+" button
 			if (entity._focusWorkers) {
@@ -212,6 +223,27 @@ async function handleOpenDirectory() {
 			}
 		}
 
+	async function handleGenerateSummary() {
+		if (!formData.path && (!formData.folders || formData.folders.length === 0)) {
+			toastStore.error('Cannot generate summary', 'Set a workspace path or folder first');
+			return;
+		}
+		const wsPath = formData.path || (formData.folders?.[0] ?? '');
+		generatingSummary = true;
+		try {
+			const result = await (window as any).go.main.App.GenerateWorkspaceSummary(wsPath);
+			if (result) {
+				formData.summary = result;
+				toastStore.success('Summary generated successfully');
+			}
+		} catch (e) {
+			console.error('Failed to generate summary:', e);
+			toastStore.error('Failed to generate summary', String(e));
+		} finally {
+			generatingSummary = false;
+		}
+	}
+
 	function handleSave() {
 		// Force enabled = true
 		formData.enabled = true;
@@ -299,6 +331,65 @@ async function handleOpenDirectory() {
 								/>
 							</div>
 						</SettingRow>
+
+					<!-- Field 4.5: Summary (Collapsible) -->
+					<div class="border-t border-[var(--border-primary)] pt-4 flex flex-col gap-3">
+						<div
+							role="button"
+							tabindex="0"
+							onclick={() => (summaryOpen = !summaryOpen)}
+							onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); summaryOpen = !summaryOpen; } }}
+							class="flex w-full items-center justify-between rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-primary)] p-4 transition-colors cursor-pointer hover:bg-[var(--surface-hover)]"
+						>
+							<div class="flex items-center gap-3">
+								<div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+									<Icon name="file-text" size={14} />
+								</div>
+								<div class="flex flex-col">
+									<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Summary</h3>
+									<span class="text-[10px] text-[var(--text-faint)]">{formData.summary ? (formData.summary_hash ? 'Auto-synced' : 'Manual') : 'Empty'}</span>
+								</div>
+							</div>
+							<div class="flex items-center gap-2">
+								{#if summaryOpen}
+									<button
+										type="button"
+										onclick={(e) => { e.stopPropagation(); handleGenerateSummary(); }}
+										disabled={generatingSummary}
+										class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.15em] transition-all cursor-pointer bg-[var(--accent-primary)] text-white shadow hover:brightness-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+									>
+										{#if generatingSummary}
+											<div class="h-3 w-3 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
+										{:else}
+											<Icon name="wand" size={12} />
+										{/if}
+										{generatingSummary ? 'Generating...' : 'Generate'}
+									</button>
+								{/if}
+								<Icon
+									name="chevron-down"
+									size={16}
+									class={cn('transition-transform duration-300', summaryOpen && 'rotate-180')}
+									color="var(--text-faint)"
+								/>
+							</div>
+						</div>
+
+						{#if summaryOpen}
+							<div class="flex flex-col gap-2 pt-1">
+								<textarea
+									bind:value={formData.summary}
+									placeholder="Auto-generated project summary. Click 'Generate' to create one from your project files."
+									class="w-full min-h-[120px] rounded-lg px-4 py-3 text-[13px] leading-relaxed border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)] resize-y font-mono"
+									rows={5}
+								></textarea>
+								<p class="text-[10px] text-[var(--text-faint)] px-1">
+									The summary replaces AGENT.md, directory structure, and manifest in the LLM context.
+									Manually edit or click Generate to auto-create from project sources.
+								</p>
+							</div>
+						{/if}
+					</div>
 
 					<!-- Field 5: Folders (Collapsible) -->
 					<div class="mt-2 border-t border-[var(--border-primary)] pt-4 flex flex-col gap-3">
@@ -648,6 +739,88 @@ async function handleOpenDirectory() {
 										<p class="text-xs uppercase font-bold tracking-widest text-[var(--text-muted)]">No tools available</p>
 									</div>
 								{/if}
+							</div>
+						{/if}
+					</div>
+
+					<!-- Field 9: Extra Config (Collapsible) -->
+					<div class="border-t border-[var(--border-primary)] pt-4 flex flex-col gap-3">
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<div
+							role="button"
+							tabindex="0"
+							onclick={() => (extraConfigOpen = !extraConfigOpen)}
+							onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); extraConfigOpen = !extraConfigOpen; } }}
+							class="flex w-full items-center justify-between rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-primary)] p-4 transition-colors cursor-pointer hover:bg-[var(--surface-hover)]"
+						>
+							<div class="flex items-center gap-3">
+								<div class="w-8 h-8 rounded-lg bg-zinc-500/10 flex items-center justify-center text-zinc-500">
+									<Icon name="cog" size={14} />
+								</div>
+								<div class="flex flex-col">
+									<h3 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Extra Config</h3>
+									<span class="text-[10px] text-[var(--text-faint)]">max_prompt, commit, context length…</span>
+								</div>
+							</div>
+							<Icon
+								name="chevron-down"
+								size={16}
+								class={cn('transition-transform duration-300', extraConfigOpen && 'rotate-180')}
+								color="var(--text-faint)"
+							/>
+						</div>
+
+						{#if extraConfigOpen}
+							<div class="flex flex-col gap-3 pt-2 pb-1 px-1">
+								<!-- max_prompt -->
+								<SettingRow label="max_prompt" description="Max prompt tokens (default: 4096)">
+									<input
+										type="number"
+										bind:value={formData.max_prompt}
+										min="0"
+										class="w-[8rem] rounded-lg px-3 py-2 text-[13px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
+									/>
+								</SettingRow>
+
+								<!-- max_content -->
+								<SettingRow label="max_content" description="Max content tokens (default: 8192)">
+									<input
+										type="number"
+										bind:value={formData.max_content}
+										min="0"
+										class="w-[8rem] rounded-lg px-3 py-2 text-[13px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
+									/>
+								</SettingRow>
+
+								<!-- commit -->
+								<SettingRow label="commit" description="Enable commit mode (default: ON)">
+									<Switch checked={formData.commit} onCheckedChange={(v) => (formData.commit = v)} />
+								</SettingRow>
+
+								<!-- max_prompt_send -->
+								<SettingRow label="max_prompt_send" description="Max últimas mensagens enviadas ao LLM (restante é resumido). 0 = unlimited">
+									<input
+										type="number"
+										bind:value={formData.max_prompt_send}
+										min="0"
+										class="w-[8rem] rounded-lg px-3 py-2 text-[13px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
+									/>
+								</SettingRow>
+
+								<!-- commit_changes -->
+								<SettingRow label="commit_changes" description="Auto-commit file changes (default: OFF)">
+									<Switch checked={formData.commit_changes} onCheckedChange={(v) => (formData.commit_changes = v)} />
+								</SettingRow>
+
+								<!-- max_context_length -->
+								<SettingRow label="max_context_length" description="Max context window length (0 = provider default)">
+									<input
+										type="number"
+										bind:value={formData.max_context_length}
+										min="0"
+										class="w-[8rem] rounded-lg px-3 py-2 text-[13px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]"
+									/>
+								</SettingRow>
 							</div>
 						{/if}
 					</div>

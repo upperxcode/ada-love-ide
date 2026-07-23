@@ -162,9 +162,9 @@ import WorkspaceDialog from './WorkspaceDialog.svelte';
 		</nav>
 
 		<!-- ── Settings Content (right area) ── -->
-		<div class="flex flex-1 flex-col min-w-0 overflow-y-auto bg-[var(--bg-primary)]">
+		<div class="flex flex-1 flex-col min-w-0 bg-[var(--bg-primary)]">
 			<!-- Content header -->
-			<div class="flex items-center justify-between border-b border-[var(--border-primary)] px-5 pt-5 pb-3">
+			<div class="flex items-center justify-between border-b border-[var(--border-primary)] px-5 pt-5 pb-3 shrink-0">
 				<div class="flex items-center gap-2">
 					<h3 class="text-sm font-semibold" style="color: var(--text-primary)">
 						{categories.find((c) => c.id === activeCategory)?.label}
@@ -219,6 +219,7 @@ import WorkspaceDialog from './WorkspaceDialog.svelte';
 				</div>
 			</div>
 
+			<div class="flex-1 overflow-y-auto min-h-0">
 			<!-- ── Content body ── -->
 			{#if activeCategory === 'general'}
 				<GeneralSettings />
@@ -242,6 +243,7 @@ import WorkspaceDialog from './WorkspaceDialog.svelte';
 				{/if}
 			</div>
 
+			</div>
 			<!-- ── Delete confirmation ── -->
 			<ConfirmDeleteDialog
 				bind:open={deleteConfirmOpen}

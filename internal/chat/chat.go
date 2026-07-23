@@ -82,8 +82,25 @@ func (c *Chat) SetPermissionStore(ps *PermissionStore) {
 	c.permStore = ps
 }
 
-func (c *Chat) SetSystemPrompt(prompt string) {
-	c.systemPrompt = prompt
+// NormalizeMode converte string de modo para o formato padronizado (ex: "execute" → "EXECUTE").
+// Retorna "ASK" para valores não reconhecidos.
+func NormalizeMode(mode string) string {
+	switch strings.ToLower(mode) {
+	case "ask":
+		return string(ModeAsk)
+	case "edit":
+		return string(ModeEdit)
+	case "plan":
+		return string(ModePlan)
+	case "execute", "exec", "test":
+		return string(ModeExec)
+	case "full":
+		return string(ModeFull)
+	case "admin", "config":
+		return string(ModeAdmin)
+	default:
+		return string(ModeAsk)
+	}
 }
 
 func (c *Chat) RespondPermission(requestID, decision string) {
@@ -91,6 +108,29 @@ func (c *Chat) RespondPermission(requestID, decision string) {
 		return
 	}
 	c.permStore.SendDecision(requestID, decision)
+}
+
+// HandleModeChange processa uma mudança de modo, limpando grants se for downgrade.
+// Retorna true se limpou grants.
+func (c *Chat) HandleModeChange(sessionID string, newMode ChatMode) bool {
+	if c.permStore == nil {
+		return false
+	}
+	oldMode := c.permStore.GetCurrentMode(sessionID)
+	if oldMode == newMode {
+		return false
+	}
+	result := c.permStore.SetCurrentMode(sessionID, newMode, c.emitter)
+	if result {
+		// Log completo no terminal
+		fmt.Printf("\n=== MODO ALTERADO: %s → %s ===\n", oldMode, newMode)
+		fmt.Println("Downgrade detectado — todos os grants foram limpos!")
+		c.permStore.DumpGrants(sessionID)
+	} else {
+		fmt.Printf("[Chat] Mode change: %s → %s (upgrade/same, grants mantidos)\n", oldMode, newMode)
+		c.permStore.DumpGrants(sessionID)
+	}
+	return result
 }
 
 type ThinkingSection struct {
@@ -237,6 +277,8 @@ func (c *Chat) Send(ctx context.Context, sessionID, text, model, thinking, mode 
 
 		c.streamingClient.SetEmitter(stream.EventEmitter(emitter))
 
+		// Normaliza o mode para uppercase (ex: "execute" → "EXECUTE")
+		mode = NormalizeMode(mode)
 		cfg := GetModeConfig(ChatMode(mode))
 		c.streamingClient.SetMode(mode)
 		if c.systemPrompt != "" {
@@ -400,53 +442,12 @@ func (c *Chat) Stop(sessionID string) {
 	}
 }
 
-// InferQuick faz uma inferência rápida sem sessão, retornando o texto completo.
-func (c *Chat) InferQuick(ctx context.Context, prompt, model string) (string, error) {
+// QuickGenerate faz uma inferência direta sem streaming, sessão ou eventos.
+func (c *Chat) QuickGenerate(ctx context.Context, prompt, model string) (string, error) {
 	if c.streamingClient == nil {
 		return "", fmt.Errorf("streaming client not available")
 	}
-
-	tokenChan := make(chan string, 100)
-	var resp strings.Builder
-	done := make(chan error, 1)
-
-	go func() {
-		for token := range tokenChan {
-			if token == "" {
-				done <- nil
-				return
-			}
-			resp.WriteString(token)
-		}
-	}()
-
-	c.streamingClient.SetEmitter(stream.EventEmitter(func(eventName string, data ...interface{}) {
-		switch eventName {
-		case "token-received":
-			if len(data) > 0 {
-				if m, ok := data[0].(map[string]interface{}); ok {
-					if token, ok := m["token"].(string); ok {
-						select {
-						case tokenChan <- token:
-						case <-ctx.Done():
-						}
-					}
-				}
-			}
-		case "stream-finished":
-			close(tokenChan)
-		}
-	}))
-
-	if err := c.streamingClient.GenerateStream(ctx, "infer-"+time.Now().Format("150405"), prompt, model); err != nil {
-		return "", err
-	}
-
-	if err := <-done; err != nil {
-		return "", err
-	}
-
-	return strings.TrimSpace(resp.String()), nil
+	return c.streamingClient.GenerateSimple(ctx, prompt, model, false)
 }
 
 // SendStreamingToChannel inicia o streaming e envia tokens para o canal

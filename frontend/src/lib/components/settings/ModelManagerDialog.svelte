@@ -20,6 +20,7 @@
 		embedding: boolean;
 		tools: boolean;
 		installed: boolean;
+		context_size: number;
 	}
 
 	interface ModelManagerDialogProps {
@@ -40,6 +41,10 @@
 	let selectedIds = $state<Set<string>>(new Set());
 	let availableModels = $state<ModelInfo[]>([]);
 	let loading = $state(false);
+	// Track editable context_size per model (overrides backend default)
+	let contextSizes = $state<Record<string, number>>({});
+	let editingContext = $state<string | null>(null);
+	let editValue = $state<string>('');
 
 	// Parse currentModels robustly (may be a JSON string or object)
 	function resolveCurrentModels(cm: Record<string, any> | string): Record<string, any> {
@@ -82,16 +87,26 @@
 			);
 			
 			const cm = resolveCurrentModels(currentModels);
-			availableModels = list.map((m: any) => ({
-				id: m.id,
-				name: m.name,
-				free: m.free,
-				thinking: m.thinking,
-				vision: m.vision,
-				embedding: m.embedding,
-				tools: m.tools,
-				installed: Object.keys(cm).includes(m.id)
-			}));
+			const sizes: Record<string, number> = {};
+			availableModels = list.map((m: any) => {
+				// Use saved context_size from currentModels if available, else from backend, else default 128000
+				const savedSize = cm[m.id]?.context_size;
+				const backendSize = m.context_size;
+				const ctxSize = savedSize || backendSize || 128000;
+				sizes[m.id] = ctxSize;
+				return {
+					id: m.id,
+					name: m.name,
+					free: m.free,
+					thinking: m.thinking,
+					vision: m.vision,
+					embedding: m.embedding,
+					tools: m.tools,
+					installed: Object.keys(cm).includes(m.id),
+					context_size: ctxSize
+				};
+			});
+			contextSizes = sizes;
 		} catch (e) {
 			toastStore.error('Fetch Models Error', String(e));
 		} finally {
@@ -129,12 +144,57 @@
 					thinking: m.thinking,
 					vision: m.vision,
 					embedding: m.embedding,
-					tools: m.tools
+					tools: m.tools,
+					context_size: contextSizes[m.id] ?? 128000
 				};
 			}
 		});
 		onSelect(result);
 		onClose();
+	}
+
+	function startEditContext(modelId: string) {
+		editingContext = modelId;
+		editValue = String(contextSizes[modelId] ?? 128000);
+	}
+
+	function saveEditContext() {
+		const id = editingContext;
+		if (!id) return;
+		const val = parseInt(editValue, 10);
+		if (!isNaN(val) && val > 0) {
+			contextSizes = { ...contextSizes, [id]: val };
+		}
+		editingContext = null;
+	}
+
+	function handleContextKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			saveEditContext();
+			return;
+		}
+		if (e.key === 'Escape') {
+			editingContext = null;
+			return;
+		}
+		// Permitir teclas de navegação/controle
+		if (['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
+			return;
+		}
+		// Bloquear qualquer tecla que não seja dígito
+		if (!/^\d$/.test(e.key)) {
+			e.preventDefault();
+		}
+	}
+
+	function handleContextInput(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const digits = input.value.replace(/\D/g, '');
+		if (digits !== input.value) {
+			input.value = digits;
+		}
+		editValue = digits;
 	}
 
 	const inputBase = 'rounded-lg px-4 py-3 text-[14px] border border-[var(--border-primary)] bg-[var(--surface-input)] outline-none transition-all focus:ring-1 focus:ring-[var(--accent-primary)]/30 focus:border-[var(--accent-primary)]';
@@ -234,6 +294,36 @@
 									{#if model.vision} <Icon name="eye" size={14} color="var(--status-info)" /> {/if}
 									{#if model.tools} <Icon name="wrench" size={14} color="var(--text-muted)" /> {/if}
 									{#if model.embedding} <Icon name="layers" size={14} color="var(--status-warning)" /> {/if}
+									
+									<!-- Context size: shows "128K" text, double-click to edit -->
+									<div class="flex items-center">
+										{#if editingContext === model.id}
+											<input
+												type="text"
+												inputmode="numeric"
+												value={editValue}
+												oninput={handleContextInput}
+												onclick={(e) => e.stopPropagation()}
+												onkeydown={handleContextKeydown}
+												onblur={saveEditContext}
+												autofocus
+												class="w-16 rounded border border-[var(--accent-primary)] bg-[var(--surface-input)] px-1.5 py-0.5 text-[10px] font-mono text-center outline-none"
+												style="color: var(--text-primary)"
+											/>
+										{:else}
+											<button
+												type="button"
+												ondblclick={(e) => { e.stopPropagation(); startEditContext(model.id); }}
+												class="group/ctx relative px-1.5 py-0.5 rounded text-[10px] font-mono tabular-nums cursor-pointer hover:bg-[var(--surface-hover)] transition-colors"
+												style="color: var(--text-faint)"
+												title="Double-click to edit context size"
+											>
+												<span class="tabular-nums">{contextSizes[model.id] ?? 128000}</span>
+												<span class="text-[8px] ml-0.5 opacity-50">ctx</span>
+											</button>
+										{/if}
+									</div>
+
 									{#if model.free} <span class="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-[var(--status-success)]/10 text-[var(--status-success)] border border-[var(--status-success)]/20">Free</span> {/if}
 								</div>
 							</button>

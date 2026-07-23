@@ -270,8 +270,8 @@
 															<button type="button" onclick={() => { activeWorkspace = ws.path; activeSessionID = ch.id; }}
 																ondblclick={() => startRename(ch)}
 																class="flex items-center gap-1.5 flex-1 min-w-0 text-left cursor-pointer">
-																<span class={cn('w-[8px] h-[8px] rounded-full shrink-0', activeSessionID === ch.id ? 'bg-[var(--accent-primary)]' : 'bg-[var(--text-faint)]')}></span>
-																<span class="text-[11px] truncate" style="color: {activeSessionID === ch.id ? 'var(--accent-primary)' : 'var(--text-muted)'}">{ch.title}</span>
+																<span style="background-color: {activeSessionID === ch.id ? '#3b82f6' : 'transparent'}; width: 8px; height: 8px;" class="shrink-0 rounded-full"></span>
+																<span class="text-[11px] truncate" style="color: {activeSessionID === ch.id ? 'var(--accent-primary)' : 'var(--text-muted)'}; text-transform: {activeSessionID === ch.id ? 'uppercase' : 'lowercase'}">{ch.title}</span>
 															</button>
 															{#if ch.pinned}
 																<button type="button" onclick={async () => { try { await TogglePin(ch.id); await loadSessions(); } catch { } }} title="Unpin"

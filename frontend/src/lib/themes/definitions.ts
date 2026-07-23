@@ -39,6 +39,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#eab308',
 			'--status-error': '#ef4444',
 			'--status-info': '#3b82f6',
+
+			'--selection-bg': 'rgba(236, 72, 153, 0.35)',
+			'--selection-fg': 'inherit',
 		},
 	},
 
@@ -71,6 +74,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#facc15',
 			'--status-error': '#f87171',
 			'--status-info': '#60a5fa',
+
+			'--selection-bg': 'rgba(244, 114, 182, 0.35)',
+			'--selection-fg': 'inherit',
 		},
 	},
 
@@ -103,6 +109,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#f59e0b',
 			'--status-error': '#ef4444',
 			'--status-info': '#38bdf8',
+
+			'--selection-bg': 'rgba(249, 115, 22, 0.35)',
+			'--selection-fg': 'inherit',
 		},
 	},
 
@@ -135,6 +144,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#fbbf24',
 			'--status-error': '#fb7185',
 			'--status-info': '#22d3ee',
+
+			'--selection-bg': 'rgba(6, 182, 212, 0.35)',
+			'--selection-fg': 'inherit',
 		},
 	},
 
@@ -167,6 +179,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#e5c07b',
 			'--status-error': '#e06c75',
 			'--status-info': '#56b6c2',
+
+			'--selection-bg': 'rgba(97, 175, 239, 0.35)',
+			'--selection-fg': 'inherit',
 		},
 	},
 
@@ -199,6 +214,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#f1fa8c',
 			'--status-error': '#ff5555',
 			'--status-info': '#8be9fd',
+
+			'--selection-bg': 'rgba(189, 147, 249, 0.35)',
+			'--selection-fg': 'inherit',
 		},
 	},
 
@@ -231,6 +249,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#ebcb8b',   // nord-13
 			'--status-error': '#bf616a',     // nord-11
 			'--status-info': '#81a1c1',      // nord-8
+
+			'--selection-bg': 'rgba(136, 192, 208, 0.35)',
+			'--selection-fg': 'inherit',
 		},
 	},
 
@@ -263,6 +284,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#f9e2af',   // yellow
 			'--status-error': '#f38ba8',     // red
 			'--status-info': '#89b4fa',      // blue
+
+			'--selection-bg': 'rgba(203, 166, 247, 0.35)',
+			'--selection-fg': 'inherit',
 		},
 	},
 
@@ -295,6 +319,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#e0af68',
 			'--status-error': '#f7768e',
 			'--status-info': '#7dcfff',
+
+			'--selection-bg': 'rgba(122, 162, 247, 0.35)',
+			'--selection-fg': 'inherit',
 		},
 	},
 
@@ -327,6 +354,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#dfb645',
 			'--status-error': '#ea6c6c',
 			'--status-info': '#59c2ff',
+
+			'--selection-bg': 'rgba(242, 151, 24, 0.35)',
+			'--selection-fg': 'inherit',
 		},
 	},
 
@@ -359,6 +389,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#f6c177',   // gold
 			'--status-error': '#eb6f92',     // love
 			'--status-info': '#3e8fb0',      // foam
+
+			'--selection-bg': 'rgba(235, 111, 146, 0.35)',
+			'--selection-fg': 'inherit',
 		},
 	},
 
@@ -386,6 +419,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#eab308',
 			'--status-error': '#ef4444',
 			'--status-info': '#3b82f6',
+
+			'--selection-bg': 'rgba(236, 72, 153, 0.2)',
+			'--selection-fg': 'inherit',
 		},
 	},
 
@@ -413,6 +449,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#eab308',
 			'--status-error': '#ef4444',
 			'--status-info': '#3b82f6',
+
+			'--selection-bg': 'rgba(59, 130, 246, 0.2)',
+			'--selection-fg': 'inherit',
 		},
 	},
 
@@ -440,6 +479,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#eab308',
 			'--status-error': '#ef4444',
 			'--status-info': '#3b82f6',
+
+			'--selection-bg': 'rgba(217, 119, 6, 0.2)',
+			'--selection-fg': 'inherit',
 		},
 	},
 
@@ -467,6 +509,9 @@ export const colorThemes: Record<string, ColorTheme> = {
 			'--status-warning': '#ca8a04',
 			'--status-error': '#dc2626',
 			'--status-info': '#2563eb',
+
+			'--selection-bg': 'rgba(37, 99, 235, 0.25)',
+			'--selection-fg': 'inherit',
 		},
 	},
 };

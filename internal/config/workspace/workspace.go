@@ -15,12 +15,17 @@ type WorkspaceConfig struct {
 	Enabled          bool     `json:"enabled"`
 	Color            string   `json:"color"`
 	Icon             string   `json:"icon"`
+	MaxPrompt        int      `json:"max_prompt"`
+	MaxContent       int      `json:"max_content"`
+	Commit           bool     `json:"commit"`
 	MaxPromptSend    int      `json:"max_prompt_send"`
 	CommitChanges    bool     `json:"commit_changes"`
 	MaxContextLength int      `json:"max_context_length"`
 	SpecWizard       string   `json:"spec_wizard"`
 	SpecWizardID     string   `json:"spec_wizard_id"`
 	Agents           []string `json:"agents"`
+	Summary          string   `json:"summary"`
+	SummaryHash      string   `json:"summary_hash"`
 }
 
 func New(title, path string) WorkspaceConfig {
@@ -34,6 +39,9 @@ func New(title, path string) WorkspaceConfig {
 		Skills:        []string{},
 		Tools:         []string{},
 		Agents:        []string{},
+		MaxPrompt:     4096,
+		MaxContent:    8192,
+		Commit:        true,
 		CommitChanges: true,
 	}
 }

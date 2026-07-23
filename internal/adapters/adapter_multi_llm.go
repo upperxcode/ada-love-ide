@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	reasoningpkg "ada-love-ide/internal/reasoning"
+
 	core "ada-love-core"
 	llm "github.com/upperxcode/ada-llm-client"
 	stream "github.com/upperxcode/ada-stream"
@@ -47,13 +49,22 @@ func (a *MultiLLMAdapter) SetPermissionGuard(guard PermissionGuard) {
 }
 
 const (
-	modeAsk  = "ASK"
-	modePlan = "PLAN"
-	modeEdit = "EDIT"
-	modeFull = "FULL"
+	modeAsk    = "ASK"
+	modePlan   = "PLAN"
+	modeEdit   = "EDIT"
+	modeExec   = "EXECUTE"
+	modeFull   = "FULL"
+	modeAdmin  = "ADMIN"
 )
 
 func (a *MultiLLMAdapter) allowedTools() []llm.ToolDefinition {
+	// O permission guard (PermissionStore) já bloqueia ações não permitidas em cada modo.
+	// Portanto, expomos todas as ferramentas para o LLM em todos os modos.
+	// O guard cuida de pedir confirmação quando necessário.
+	if a.permissionGuard != nil {
+		return a.tools
+	}
+	// Fallback sem guard: usa a filtragem antiga
 	switch a.mode {
 	case modeAsk, modePlan:
 		return filterTools(a.tools, []string{"read", "search"})
@@ -212,6 +223,46 @@ func (a *MultiLLMAdapter) Generate(ctx context.Context, prompt string, model str
 	return ch, nil
 }
 
+func (a *MultiLLMAdapter) GenerateSimple(ctx context.Context, prompt, model string, tools bool) (string, error) {
+	if response, ok := llm.CheckStaticResponse(prompt); ok {
+		return response, nil
+	}
+
+	client, resolvedModel := a.resolveClient(model)
+	if client == nil {
+		return "", fmt.Errorf("model %q not found", model)
+	}
+
+	messages := []llm.Message{llm.NewUserMessage(prompt)}
+
+	req := llm.InferenceRequest{
+		Messages: messages,
+		Config: llm.InferenceConfig{
+			Model:       resolvedModel,
+			Temperature: 0.3,
+			MaxTokens:   300,
+		},
+	}
+	if tools {
+		filtered := a.allowedTools()
+		if len(filtered) > 0 {
+			req.Tools = filtered
+		}
+	}
+
+	fmt.Printf("[GenerateSimple] calling client.Generate model=%q promptLen=%d\n", resolvedModel, len(prompt))
+	resp, _, err := client.Generate(ctx, req)
+	if err != nil {
+		fmt.Printf("[GenerateSimple] ERROR: %v\n", err)
+		return "", err
+	}
+	resp = strings.TrimSpace(resp)
+	resp = strings.Trim(resp, "\"'`")
+	resp = strings.TrimSpace(resp)
+	fmt.Printf("[GenerateSimple] response len=%d preview=%q\n", len(resp), resp[:min(len(resp), 100)])
+	return resp, nil
+}
+
 func (a *MultiLLMAdapter) GenerateStream(ctx context.Context, sessionID string, prompt string, model string) error {
 	fmt.Printf("[MultiLLMAdapter.GenerateStream] ENTER session=%s model=%s\n", sessionID, model)
 
@@ -284,8 +335,8 @@ messages := []llm.Message{}
 			}
 
 			prevReasoningLen := 0
-				reasoningParser := NewReasoningParser()
-				lastReasoningType := ReasoningPlan
+				reasoningParser := reasoningpkg.NewParser()
+				lastReasoningType := reasoningpkg.Plan
 				resp, toolCalls, err := client.GenerateStream(ctx, req, func(accumulated, reasoning string) {
 					fmt.Printf("[DEBUG:adapter] callback called — accumulated len=%d, reasoning len=%d\n", len(accumulated), len(reasoning))
 					if accumulated != "" {
@@ -299,15 +350,15 @@ messages := []llm.Message{}
 							detectedType, changed := reasoningParser.Feed(delta)
 							chunkType := stream.ChunkThought
 							switch detectedType {
-							case ReasoningPlan:
+							case reasoningpkg.Plan:
 								chunkType = stream.ChunkPlan
-							case ReasoningExplore:
+							case reasoningpkg.Explore:
 								chunkType = stream.ChunkExplore
-							case ReasoningExec:
+							case reasoningpkg.Exec:
 								chunkType = stream.ChunkExec
-							case ReasoningRead:
+							case reasoningpkg.Read:
 								chunkType = stream.ChunkRead
-							case ReasoningDiff:
+							case reasoningpkg.Diff:
 								chunkType = stream.ChunkDiff
 							}
 							if changed {
@@ -577,6 +628,7 @@ func extractDiffStats(result string) string {
 
 type LLMStreamingClient interface {
 	GenerateStream(ctx context.Context, sessionID string, prompt string, model string) error
+	GenerateSimple(ctx context.Context, prompt string, model string, tools bool) (string, error)
 	SetEmitter(emitter stream.EventEmitter)
 	SetMode(mode string)
 	SetSystemPrompt(prompt string)

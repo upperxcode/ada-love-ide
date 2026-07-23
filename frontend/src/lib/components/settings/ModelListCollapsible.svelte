@@ -25,6 +25,63 @@
 	let isOpen = $state(false);
 	const modelEntries = $derived(Object.entries(models));
 
+	// Context size editing state (per model id)
+	let editingContext = $state<string | null>(null);
+	let editValue = $state<string>('');
+
+	function getContextSize(modelId: string): number {
+		const s = models[modelId];
+		if (s && typeof s.context_size === 'number' && s.context_size > 0) return s.context_size;
+		return 128000;
+	}
+
+	function startEditContext(modelId: string) {
+		editingContext = modelId;
+		editValue = String(getContextSize(modelId));
+	}
+
+	function saveEditContext() {
+		const id = editingContext;
+		if (!id) return;
+		const val = parseInt(editValue, 10);
+		if (!isNaN(val) && val > 0) {
+			const settings = { ...models[id] };
+			settings.context_size = val;
+			const updatedModels = { ...models, [id]: settings };
+			onchange?.(JSON.stringify(updatedModels));
+		}
+		editingContext = null;
+	}
+
+	function handleContextKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			saveEditContext();
+			return;
+		}
+		if (e.key === 'Escape') {
+			editingContext = null;
+			return;
+		}
+		// Permitir teclas de navegação/controle
+		if (['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
+			return;
+		}
+		// Bloquear qualquer tecla que não seja dígito
+		if (!/^\d$/.test(e.key)) {
+			e.preventDefault();
+		}
+	}
+
+	function handleContextInput(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const digits = input.value.replace(/\D/g, '');
+		if (digits !== input.value) {
+			input.value = digits;
+		}
+		editValue = digits;
+	}
+
 	function toggleProp(modelId: string, prop: string) {
 		const settings = { ...models[modelId] };
 		settings[prop] = !settings[prop];
@@ -125,6 +182,35 @@
 										<Icon name={p.icon} size={14} />
 									</button>
 								{/each}
+
+								<!-- Context size: shows "128K", double-click to edit -->
+								<div class="flex items-center">
+									{#if editingContext === id}
+										<input
+											type="text"
+											inputmode="numeric"
+											value={editValue}
+											oninput={handleContextInput}
+											onclick={(e) => e.stopPropagation()}
+											onkeydown={handleContextKeydown}
+											onblur={saveEditContext}
+											autofocus
+											class="w-16 rounded border border-[var(--accent-primary)] bg-[var(--surface-input)] px-1.5 py-0.5 text-[10px] font-mono text-center outline-none"
+											style="color: var(--text-primary)"
+										/>
+									{:else}
+										<button
+											type="button"
+											ondblclick={(e) => { e.stopPropagation(); startEditContext(id); }}
+											class="group/ctx relative px-1.5 py-0.5 rounded text-[10px] font-mono tabular-nums cursor-pointer hover:bg-[var(--surface-hover)] transition-colors"
+											style="color: var(--text-faint)"
+											title="Double-click to edit context size"
+										>
+											<span class="tabular-nums">{getContextSize(id)}</span>
+											<span class="text-[8px] ml-0.5 opacity-50">ctx</span>
+										</button>
+									{/if}
+								</div>
 							</div>
 
 							<!-- Delete button -->

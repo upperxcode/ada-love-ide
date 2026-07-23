@@ -127,9 +127,20 @@
 		filter: saturate(var(--vibrance-sat, 1));
 	}
 
+	/* ── Text selection ──
+	 * Uses dedicated selection variables for maximum contrast.
+	 * --selection-bg is a semi-transparent accent color.
+	 * --selection-fg defaults to inherit so the text keeps its original
+	 * color — no risk of black-on-black or white-on-white.
+	 * Fallbacks ensure compatibility with themes that don't define these yet.
+	 */
 	::selection {
-		background-color: var(--accent-primary);
-		color: var(--accent-primary-fg);
+		background-color: var(--selection-bg, color-mix(in srgb, var(--accent-primary) 40%, transparent));
+		color: var(--selection-fg, inherit);
+	}
+	::-moz-selection {
+		background-color: var(--selection-bg, color-mix(in srgb, var(--accent-primary) 40%, transparent));
+		color: var(--selection-fg, inherit);
 	}
 
 	/* ── Scrollbar styling ── */

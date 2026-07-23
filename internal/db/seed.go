@@ -182,6 +182,7 @@ func (s *Store) ResetToFactoryDefaults(ctx context.Context) {
 		DELETE FROM agents;
 		DELETE FROM workers;
 		DELETE FROM greetings;
+		DELETE FROM session_attachments;
 		DELETE FROM sessions;
 		DELETE FROM memories;
 	`)

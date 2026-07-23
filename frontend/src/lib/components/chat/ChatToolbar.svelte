@@ -19,6 +19,7 @@
 		selectedMode: 'ASK' | 'EDIT' | 'PLAN';
 		modes: readonly ('ASK' | 'EDIT' | 'PLAN')[];
 		onSend: () => void;
+		onAttach?: () => void;
 		onSelectedModelChange?: (model: ModelOption) => void;
 		onSelectedModeChange?: (mode: 'ASK' | 'EDIT' | 'PLAN') => void;
 	}
@@ -30,6 +31,7 @@
 		selectedMode,
 		modes,
 		onSend,
+		onAttach,
 		onSelectedModelChange,
 		onSelectedModeChange,
 	}: ChatToolbarProps = $props();
@@ -67,6 +69,7 @@
 
 		<button
 			type="button"
+			onclick={onAttach}
 			title="Attach file"
 			class={cn(
 				'flex items-center justify-center w-8 h-8 rounded-lg',

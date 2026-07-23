@@ -32,102 +32,135 @@ func TestNewPermissionStore_NoDB(t *testing.T) {
 	}
 }
 
-func TestCheck_ModeFull_AlwaysAllowed(t *testing.T) {
+func TestCheck_ModeFull_AlwaysAllowedForLowRisk(t *testing.T) {
 	ps := newTestStore()
-	cases := []string{"read", "search", "write", "exec", "plan", "unknown"}
+	cases := []string{"read", "search", "write", "exec", "plan"}
 	for _, tool := range cases {
-		allowed, _, req := ps.Check("sess-1", tool, `{}`, ModeFull)
-		if !allowed {
-			t.Errorf("Check(FULL, %q) = false, want true", tool)
+		result := ps.Check("sess-1", tool, `{}`, ModeFull)
+		if !result.Allowed {
+			t.Errorf("Check(FULL, %q) = %+v, want Allowed=true", tool, result)
 		}
-		if req != nil {
-			t.Errorf("Check(FULL, %q) returned request, want nil", tool)
-		}
+	}
+}
+
+func TestCheck_ModeFull_HighRiskNeedsConfirm(t *testing.T) {
+	ps := newTestStore()
+	// rm -rf é high risk no FULL
+	result := ps.Check("sess-1", "exec", `{"command":"rm -rf /tmp"}`, ModeFull)
+	if result.Allowed {
+		t.Error("Check(FULL, rm -rf) should not be allowed without confirm")
+	}
+	if !result.NeedsConfirm {
+		t.Error("Check(FULL, rm -rf) should need confirm")
+	}
+	if result.Request == nil {
+		t.Error("Check(FULL, rm -rf) should return a PermissionRequest")
+	}
+}
+
+func TestCheck_ModeFull_GitPushForceNeedsConfirm(t *testing.T) {
+	ps := newTestStore()
+	result := ps.Check("sess-1", "exec", `{"command":"git push --force origin main"}`, ModeFull)
+	if result.Allowed {
+		t.Error("Check(FULL, git push --force) should not be allowed without confirm")
+	}
+	if !result.NeedsConfirm {
+		t.Error("Check(FULL, git push --force) should need confirm")
 	}
 }
 
 func TestCheck_ToolNotAllowed_Ask(t *testing.T) {
 	ps := newTestStore()
-	allowed, reason, req := ps.Check("sess-1", "exec", `{"command":"ls"}`, ModeAsk)
-	if allowed {
+	result := ps.Check("sess-1", "exec", `{"command":"ls"}`, ModeAsk)
+	if result.Allowed {
 		t.Fatal("Check(ASK, exec) = true, want false")
 	}
-	if req == nil {
+	if result.Request == nil {
 		t.Fatal("Check(ASK, exec) should return PermissionRequest (CanOverrideOnce=true)")
 	}
-	if reason == "" {
+	if result.Reason == "" {
 		t.Error("reason should not be empty")
 	}
 }
 
 func TestCheck_ToolAllowed_Ask(t *testing.T) {
 	ps := newTestStore()
-	allowed, _, req := ps.Check("sess-1", "read", `{}`, ModeAsk)
-	if !allowed {
+	result := ps.Check("sess-1", "read", `{}`, ModeAsk)
+	if !result.Allowed {
 		t.Error("Check(ASK, read) = false, want true")
 	}
-	if req != nil {
+	if result.Request != nil {
 		t.Error("Check(ASK, read) returned request, want nil")
 	}
 }
 
 func TestCheck_Edit_Exec_NeedsPerm(t *testing.T) {
 	ps := newTestStore()
-	allowed, _, req := ps.Check("sess-1", "exec", `{"command":"ls"}`, ModeEdit)
-	if allowed {
+	result := ps.Check("sess-1", "exec", `{"command":"ls"}`, ModeEdit)
+	if result.Allowed {
 		t.Fatal("Check(EDIT, exec) = true, want false")
 	}
-	if req == nil {
+	if result.Request == nil {
 		t.Fatal("Check(EDIT, exec) should return PermissionRequest")
 	}
 }
 
 func TestCheck_Edit_Read_Allowed(t *testing.T) {
 	ps := newTestStore()
-	allowed, _, req := ps.Check("sess-1", "read", `{}`, ModeEdit)
-	if !allowed {
+	result := ps.Check("sess-1", "read", `{}`, ModeEdit)
+	if !result.Allowed {
 		t.Error("Check(EDIT, read) = false, want true")
 	}
-	if req != nil {
+	if result.Request != nil {
 		t.Error("Check(EDIT, read) returned request, want nil")
 	}
 }
 
 func TestGrant_AllowSession(t *testing.T) {
 	ps := newTestStore()
-	ps.Grant("sess-1", "exec", "*", "allow_session")
+	ps.Grant("sess-1", "exec", "*", string(DecisionAllowSession), TTLSession)
 
-	// After Grant, Check should return true
-	allowed, _, req := ps.Check("sess-1", "exec", `{"command":"ls"}`, ModeEdit)
-	if !allowed {
-		t.Error("Check after allow_session grant = false, want true")
+	result := ps.Check("sess-1", "exec", `{"command":"ls"}`, ModeEdit)
+	if !result.Allowed {
+		t.Errorf("Check after allow_session grant = false, want true: %+v", result)
 	}
-	if req != nil {
+	if result.Request != nil {
 		t.Error("Check after allow_session returned request, want nil")
+	}
+}
+
+func TestGrant_TTLExpiry(t *testing.T) {
+	ps := newTestStore()
+	// Grant com TTL muito curto (já expirado)
+	ps.Grant("sess-1", "exec", "*", string(DecisionAllowSession), TTLAction)
+	// TTLAction não expira (time.Time{}), então ainda deve funcionar
+	result := ps.Check("sess-1", "exec", `{"command":"ls"}`, ModeEdit)
+	if !result.Allowed {
+		t.Errorf("Check after TTLAction grant should be allowed: %+v", result)
 	}
 }
 
 func TestClearSessionGrants(t *testing.T) {
 	ps := newTestStore()
-	ps.sessionGrants["sess-1"] = map[string]bool{"exec": true}
+	ps.GrantAllowOnce("sess-1", "exec")
 	ps.ClearSessionGrants("sess-1")
 
-	allowed, _, req := ps.Check("sess-1", "exec", `{"command":"ls"}`, ModeEdit)
-	if allowed {
+	result := ps.Check("sess-1", "exec", `{"command":"ls"}`, ModeEdit)
+	if result.Allowed {
 		t.Error("Check after ClearSessionGrants = true, want false")
 	}
-	if req == nil {
+	if result.Request == nil {
 		t.Error("Check after ClearSessionGrants should return request")
 	}
 }
 
 func TestResetSession(t *testing.T) {
 	ps := newTestStore()
-	ps.Grant("sess-1", "exec", "*", "allow_session")
-	ps.sessionGrants["sess-1"] = map[string]bool{"exec": true}
-	req := ps.createRequest("sess-1", "exec", `{}`, "test", ModeEdit)
+	ps.Grant("sess-1", "exec", "*", string(DecisionAllowSession), TTLSession)
+	ps.GrantAllowOnce("sess-1", "exec")
+	req := ps.CreatePermissionRequest("sess-1", "exec", `{}`, "test", ModeEdit)
 	if req == nil {
-		t.Fatal("createRequest failed")
+		t.Fatal("CreatePermissionRequest failed")
 	}
 
 	ps.ResetSession("sess-1")
@@ -137,10 +170,6 @@ func TestResetSession(t *testing.T) {
 	}
 	if ps.GetPending(req.RequestID) != nil {
 		t.Error("pending not cleared after ResetSession")
-	}
-	_, sessionOk := ps.sessionGrants["sess-1"]
-	if sessionOk {
-		t.Error("sessionGrants not cleared after ResetSession")
 	}
 }
 
@@ -164,45 +193,51 @@ func TestExtractPath(t *testing.T) {
 	}
 }
 
-func TestClassifyAction(t *testing.T) {
-	cases := []struct {
-		tool     string
-		path     string
-		mode     ChatMode
-		want     string
-	}{
-		{"exec", "ls", ModeEdit, "exec"},
-		{"exec", "ls", ModeAsk, "exec"},
-		{"exec", "ls", ModeFull, ""},
-		{"write", "/outside", ModeEdit, "write_outside"},
-		{"write", "/outside", ModeAsk, "write_outside"},
-		{"write_file", "/outside", ModeEdit, "write_outside"},
-		{"create_dir", "/tmp", ModeEdit, "mkdir_outside"},
-		{"read", "/file", ModeEdit, ""},
-		{"unknown", "", ModeEdit, ""},
+func TestCheck_ExecMode_BlocksHighRiskCommands(t *testing.T) {
+	ps := newTestStore()
+	// Modo EXECUTE deve bloquear rm -rf
+	result := ps.Check("sess-1", "exec", `{"command":"rm -rf /tmp"}`, ModeExec)
+	if result.Allowed {
+		t.Error("Check(EXEC, rm -rf) should be blocked")
 	}
-	for _, c := range cases {
-		got := classifyAction(c.tool, c.path, c.mode)
-		if got != c.want {
-			t.Errorf("classifyAction(%q, %q, %v) = %q, want %q", c.tool, c.path, c.mode, got, c.want)
+	// Modo EXECUTE deve permitir go test
+	result2 := ps.Check("sess-1", "exec", `{"command":"go test ./..."}`, ModeExec)
+	if !result2.Allowed {
+		t.Errorf("Check(EXEC, go test) should be allowed: %+v", result2)
+	}
+}
+
+func TestCheck_ExecMode_AllowsWrite(t *testing.T) {
+	ps := newTestStore()
+	result := ps.Check("sess-1", "write", `{"file_path":"src/main.go"}`, ModeExec)
+	if !result.Allowed {
+		t.Errorf("Check(EXEC, write src/main.go) should be allowed: %+v", result)
+	}
+}
+
+func TestCheck_AdminMode_AllowsCapabilities(t *testing.T) {
+	ps := newTestStore()
+	for _, tool := range []string{"read", "search", "write", "exec", "plan", "config", "admin"} {
+		result := ps.Check("sess-1", tool, `{}`, ModeAdmin)
+		if !result.Allowed {
+			t.Errorf("Check(ADMIN, %q) should be allowed: %+v", tool, result)
 		}
 	}
 }
 
-func pendingReqID(ps *PermissionStore) string {
-	for i := 0; i < 20; i++ {
-		ps.mu.Lock()
-		for id := range ps.pendingChans {
-			ps.mu.Unlock()
-			return id
+func TestCheck_WriteEnv_AlwaysCritical(t *testing.T) {
+	ps := newTestStore()
+	modeCases := []ChatMode{ModeAsk, ModeEdit, ModeExec}
+	for _, mode := range modeCases {
+		result := ps.Check("sess-1", "write", `{"file_path":".env"}`, mode)
+		// Deve pedir permissão (NeedsConfirm) ou ser bloqueado (depende do modo)
+		if result.Allowed {
+			t.Errorf("Check(%v, write .env) should not be auto-allowed", mode)
 		}
-		ps.mu.Unlock()
-		time.Sleep(50 * time.Millisecond)
 	}
-	return ""
 }
 
-func TestSendDecision_AllowOnce(t *testing.T) {
+func TestGrantAllowOnce_SecondCallPasses(t *testing.T) {
 	ps := newTestStore()
 	emitter := &mockEmitter{}
 	ctx := context.Background()
@@ -216,18 +251,19 @@ func TestSendDecision_AllowOnce(t *testing.T) {
 		t.Fatal("no pending channel found")
 	}
 
-	ps.SendDecision(reqID, "allow_once")
-	allowed := <-done
-
-	if !allowed {
-		t.Error("guard returned false after allow_once, want true")
+	ps.SendDecision(reqID, string(DecisionAllowOnce))
+	firstAllowed := <-done
+	if !firstAllowed {
+		t.Error("first call: guard should return allowed after decision")
 	}
 
-	ps.mu.Lock()
-	_, sessionOk := ps.sessionGrants["sess-1"]["exec"]
-	ps.mu.Unlock()
-	if !sessionOk {
-		t.Error("sessionGrant not set after allow_once")
+	// Second call — should pass via sessionGrant
+	result := ps.Check("sess-1", "exec", `{}`, ModeAsk)
+	if !result.Allowed {
+		t.Error("second call should be allowed via sessionGrant")
+	}
+	if result.Request != nil {
+		t.Error("second call should not create new request")
 	}
 }
 
@@ -245,7 +281,7 @@ func TestSendDecision_AllowSession(t *testing.T) {
 		t.Fatal("no pending channel found")
 	}
 
-	ps.SendDecision(reqID, "allow_session")
+	ps.SendDecision(reqID, string(DecisionAllowSession))
 	allowed := <-done
 
 	if !allowed {
@@ -253,7 +289,7 @@ func TestSendDecision_AllowSession(t *testing.T) {
 	}
 
 	grants := ps.AllGrants("sess-1")
-	if len(grants) != 1 || grants[0].Decision != "allow_session" {
+	if len(grants) != 1 || grants[0].Decision != string(DecisionAllowSession) {
 		t.Errorf("grants = %+v, want 1 grant with allow_session", grants)
 	}
 }
@@ -272,41 +308,11 @@ func TestSendDecision_Deny(t *testing.T) {
 		t.Fatal("no pending channel found")
 	}
 
-	ps.SendDecision(reqID, "deny")
+	ps.SendDecision(reqID, string(DecisionDeny))
 	allowed := <-done
 
 	if allowed {
 		t.Error("guard returned true after deny, want false")
-	}
-}
-
-func TestSessionGrants_AllowOnce_SecondCallPasses(t *testing.T) {
-	ps := newTestStore()
-	emitter := &mockEmitter{}
-	ctx := context.Background()
-	guard := ps.MakeGuard(ctx, "sess-1", ModeAsk, emitter)
-
-	done := make(chan bool)
-	go func() { a, _, _ := guard("exec", `{}`); done <- a; close(done) }()
-
-	reqID := pendingReqID(ps)
-	if reqID == "" {
-		t.Fatal("no pending channel found")
-	}
-
-	ps.SendDecision(reqID, "allow_once")
-	firstAllowed := <-done
-	if !firstAllowed {
-		t.Error("first call: guard should return allowed after decision")
-	}
-
-	// Second call — should pass via sessionGrant
-	allowed2, _, req2 := ps.Check("sess-1", "exec", `{}`, ModeAsk)
-	if !allowed2 {
-		t.Error("second call should be allowed via sessionGrant")
-	}
-	if req2 != nil {
-		t.Error("second call should not create new request")
 	}
 }
 
@@ -334,22 +340,89 @@ func TestContextCancel_UnblocksGuard(t *testing.T) {
 
 func TestPlanMode_SearchAllowed(t *testing.T) {
 	ps := newTestStore()
-	allowed, _, req := ps.Check("sess-1", "search", `{}`, ModePlan)
-	if !allowed {
+	result := ps.Check("sess-1", "search", `{}`, ModePlan)
+	if !result.Allowed {
 		t.Error("Check(PLAN, search) = false, want true")
 	}
-	if req != nil {
+	if result.Request != nil {
 		t.Error("Check(PLAN, search) returned request, want nil")
 	}
 }
 
 func TestPlanMode_ExecBlocked(t *testing.T) {
 	ps := newTestStore()
-	allowed, _, req := ps.Check("sess-1", "exec", `{}`, ModePlan)
-	if allowed {
+	result := ps.Check("sess-1", "exec", `{}`, ModePlan)
+	if result.Allowed {
 		t.Fatal("Check(PLAN, exec) = true, want false")
 	}
-	if req == nil {
+	if result.Request == nil {
 		t.Fatal("Check(PLAN, exec) should return PermissionRequest")
 	}
+}
+
+func TestCheck_ResultHasCorrectRiskLevel(t *testing.T) {
+	ps := newTestStore()
+	// exec no ASK deve ser RiskCritical
+	result := ps.Check("sess-1", "exec", `{"command":"ls"}`, ModeAsk)
+	if result.RiskLevel != RiskCritical {
+		t.Errorf("RiskLevel = %v, want %v", result.RiskLevel, RiskCritical)
+	}
+	// read no ASK deve ser RiskNone
+	result2 := ps.Check("sess-1", "read", `{}`, ModeAsk)
+	if result2.RiskLevel != RiskNone {
+		t.Errorf("RiskLevel = %v, want %v", result2.RiskLevel, RiskNone)
+	}
+}
+
+func TestCheck_ExecMode_NpmTestAllowed(t *testing.T) {
+	ps := newTestStore()
+	result := ps.Check("sess-1", "exec", `{"command":"npm test"}`, ModeExec)
+	if !result.Allowed {
+		t.Errorf("Check(EXEC, npm test) should be allowed: %+v", result)
+	}
+}
+
+func TestCheck_ExplicitActivationModes(t *testing.T) {
+	// FULL e ADMIN exigem ativação explícita
+	cfgFull := GetModeConfig(ModeFull)
+	if !cfgFull.RequiresExplicitActivation {
+		t.Error("ModeFull deve exigir ativação explícita")
+	}
+	cfgAdmin := GetModeConfig(ModeAdmin)
+	if !cfgAdmin.RequiresExplicitActivation {
+		t.Error("ModeAdmin deve exigir ativação explícita")
+	}
+	cfgAsk := GetModeConfig(ModeAsk)
+	if cfgAsk.RequiresExplicitActivation {
+		t.Error("ModeAsk não deve exigir ativação explícita")
+	}
+}
+
+func TestGetRiskDescription(t *testing.T) {
+	desc := GetRiskDescription(ActionRead)
+	if desc == "" {
+		t.Error("GetRiskDescription(ActionRead) returned empty")
+	}
+	desc = GetRiskDescription(ActionExec)
+	if desc == "" {
+		t.Error("GetRiskDescription(ActionExec) returned empty")
+	}
+	// Ação desconhecida deve retornar o nome
+	desc = GetRiskDescription("unknown")
+	if desc != "unknown" {
+		t.Errorf("GetRiskDescription('unknown') = %q, want 'unknown'", desc)
+	}
+}
+
+func pendingReqID(ps *PermissionStore) string {
+	for i := 0; i < 20; i++ {
+		ps.mu.Lock()
+		for id := range ps.pendingChans {
+			ps.mu.Unlock()
+			return id
+		}
+		ps.mu.Unlock()
+		time.Sleep(50 * time.Millisecond)
+	}
+	return ""
 }

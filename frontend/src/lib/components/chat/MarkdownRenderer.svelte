@@ -21,9 +21,76 @@
 	interface Props { content: string; }
 	let { content }: Props = $props();
 
+	/**
+	 * Detecta blocos de tabela com caracteres box-drawing (┌─┬─┐ │ ├─┼─┤ └─┴─┘)
+	 * e envolve em code block (```) para preservar espaçamento.
+	 * 
+	 * A LLM frequentemente gera essas tabelas sem code block, e o HTML
+	 * colapsa os espaços, destruindo o alinhamento.
+	 */
+	function wrapBoxTables(text: string): string {
+		const BOX_RE = /[\u2500-\u257F]/;
+		const lines = text.split('\n');
+		const out: string[] = [];
+		let inFence = false;
+		let inTable = false;
+		let tableLines: string[] = [];
+
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+			const trimmed = line.trim();
+
+			// Rastrear blocos de código já cercados (```)
+			if (trimmed.startsWith('```')) {
+				if (inTable) {
+					flushTable();
+				}
+				inFence = !inFence;
+				out.push(line);
+				continue;
+			}
+
+			// Ignorar linhas dentro de blocos de código existentes
+			if (inFence) {
+				out.push(line);
+				continue;
+			}
+
+			// Linha com caracteres box-drawing?
+			if (BOX_RE.test(line)) {
+				tableLines.push(line);
+				inTable = true;
+			} else {
+				if (inTable) {
+					flushTable();
+				}
+				out.push(line);
+			}
+		}
+
+		// Despejar tabela pendente no final
+		if (inTable) flushTable();
+
+		function flushTable() {
+			// Só envolve se tiver pelo menos 2 linhas (evita falsos positivos)
+			if (tableLines.length >= 2) {
+				out.push('```\n' + tableLines.join('\n') + '\n```');
+			} else {
+				out.push(...tableLines);
+			}
+			tableLines = [];
+			inTable = false;
+		}
+
+		return out.join('\n');
+	}
+
 	let rendered = $derived.by(() => {
 		if (!content) return '';
-		try { return marked.parse(content) as string; }
+		try {
+			const processed = wrapBoxTables(content);
+			return marked.parse(processed) as string;
+		}
 		catch { return content; }
 	});
 </script>
