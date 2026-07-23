@@ -85,7 +85,10 @@ interface WorkerConfig {
 	color: string;
 	connection_type: string;
 	connection_name: string;
-	connection_config: string;
+	command: string;
+	arguments: string;
+	models_command: string;
+	environment: string;
 	inherit_folders: boolean;
 	inherit_knowledge: boolean;
 	inherit_skills: boolean;
@@ -124,6 +127,8 @@ interface WorkspaceConfig {
 		max_context_length: number;
 		spec_wizard_id?: string;
 		agents: string[];
+		summary: string;
+		summary_hash: string;
 	}
 
 	interface SpecWizardConfig {
@@ -180,8 +185,32 @@ export const FIELD_CONFIGS: Record<string, FieldConfig[]> = {
 		{ key: 'connection_type', label: 'Connection Type', description: 'Underlying bridge protocol', type: 'select', options: [
 			{ label: 'Ada', value: 'ada' },
 			{ label: 'CLI', value: 'cli' },
-			{ label: 'Url/Api', value: 'url' },
+			{ label: 'URL/API', value: 'url' },
+			{ label: 'OpenCode Server', value: 'opencode_serve' },
 		]},
+		// ── CLI-specific fields ──
+		{ key: 'command', label: 'Command', description: 'Executable command for the CLI worker', type: 'text', placeholder: '/usr/bin/my-cli', cliOnly: true },
+		{ key: 'arguments', label: 'Arguments', description: 'Command line arguments', type: 'text', placeholder: '--flag value', cliOnly: true },
+		{ key: 'models_command', label: 'Models Command', description: 'Command to list available models (default: models)', type: 'text', placeholder: 'models', cliOnly: true },
+		{ key: 'environment', label: 'Environment', description: 'Environment variables (JSON)', type: 'textarea', fullWidth: true, expandable: true, cliOnly: true },
+		// ── URL/API-specific fields ──
+		{ key: 'command', label: 'Base URL', description: 'Base URL of the API server', type: 'text', placeholder: 'http://localhost:4096', urlOnly: true },
+		{ key: 'chat_path', label: 'Chat Path', description: 'API path for chat completions', type: 'text', placeholder: '/v1/chat/completions', urlOnly: true },
+		{ key: 'chat_body_template', label: 'Chat Body Template', description: 'Go template for request body. Variables: {{.Message}}, {{.Model}}, {{.Stream}}', type: 'textarea', fullWidth: true, expandable: true, urlOnly: true },
+		{ key: 'models_url', label: 'Models URL', description: 'URL or path to list available models', type: 'text', placeholder: '/config/providers', urlOnly: true },
+		{ key: 'models_format', label: 'Models Format', description: 'Response format: providers_obj, providers_arr, json_array, or flat', type: 'select', options: [
+			{ label: 'Providers Object', value: 'providers_obj' },
+			{ label: 'Providers Array', value: 'providers_arr' },
+			{ label: 'JSON Array', value: 'json_array' },
+			{ label: 'Flat (line by line)', value: 'flat' },
+		], urlOnly: true },
+		{ key: 'stream_enabled', label: 'Stream', description: 'Enable SSE streaming for real-time output', type: 'toggle', urlOnly: true },
+		{ key: 'start_command', label: 'Start Command', description: 'Command to start the server', type: 'text', placeholder: 'opencode serve --port 4096', urlOnly: true },
+		{ key: 'environment', label: 'Auth Headers', description: 'Headers for API authentication (JSON)', type: 'textarea', fullWidth: true, expandable: true, urlOnly: true },
+		// ── OpenCode Server fields ──
+		{ key: 'command', label: 'Server URL', description: 'OpenCode server URL', type: 'text', placeholder: 'http://localhost:4096', opencodeServeOnly: true },
+		{ key: 'start_command', label: 'Start Command', description: 'Command to start the server', type: 'text', placeholder: 'opencode serve --port 4096', opencodeServeOnly: true },
+		{ key: 'environment', label: 'Auth Headers', description: 'Server password or custom headers (JSON)', type: 'textarea', fullWidth: true, expandable: true, opencodeServeOnly: true },
 		{ key: 'inherit_folders', label: 'Inherit Folders', description: 'Inherit workspace file structure', type: 'toggle' },
 		{ key: 'inherit_knowledge', label: 'Inherit Knowledge', description: 'Inherit local knowledge base', type: 'toggle' },
 		{ key: 'inherit_skills', label: 'Inherit Skills', description: 'Inherit system skills/commands', type: 'toggle' },
@@ -263,6 +292,24 @@ function toCardData(raw: any, nameKey = 'name', idKey = 'id'): EntityCardData {
 	}
 	if (raw.env && !raw.environment) {
 		raw.environment = JSON.stringify(raw.env);
+	}
+
+	// For URL and OpenCode Server workers: decode arguments JSON into flat fields
+	if ((raw.connection_type === 'url' || raw.connection_type === 'opencode_serve') && raw.arguments) {
+		try {
+			const paths = JSON.parse(raw.arguments);
+			raw.chat_path = paths.chat_path || '/v1/chat/completions';
+			raw.chat_body_template = paths.chat_body_template || '';
+			raw.models_url = raw.models_command || paths.models_path || '/config/providers';
+			raw.models_format = paths.models_format || 'providers_obj';
+			raw.stream_enabled = paths.stream === true;
+			raw.start_command = paths.start_command || '';
+		} catch {
+			raw.chat_path = '/api/chat';
+			raw.models_url = raw.models_command || '/api/models';
+			raw.stream_enabled = true;
+			raw.start_command = '';
+		}
 	}
 
 	// Handle Provider specific mappings
@@ -442,18 +489,76 @@ class EntityStore {
 	}
 
 	async saveWorker(data: Record<string, any>) {
-		let newList;
-		if (data.id) {
-			newList = this.workers.map((w) => (w.id === data.id ? { ...w, ...data } : w));
-		} else {
-			const newWorker = {
-				...data,
-				id: 0,
+		let payload = { ...data };
+
+		// Extract worker-scoped providers before encoding
+		const workerProviders = payload.providers || {};
+		delete payload.providers;
+
+		// For URL workers: encode url-specific fields into arguments JSON
+		if (data.connection_type === 'url') {
+			const defaultTemplate = `{"model":"{{.Model}}","messages":[{"role":"user","content":"{{.Message}}"}],"stream":{{.Stream}}}`;
+		const paths = {
+				chat_path: data.chat_path || '/v1/chat/completions',
+				chat_body_template: data.chat_body_template || defaultTemplate,
+				models_path: data.models_url || data.models_path || '/config/providers',
+				models_format: data.models_format || 'providers_obj',
+				stream: data.stream_enabled !== false,
+				start_command: data.start_command || '',
 			};
+			payload.arguments = JSON.stringify(paths);
+			payload.models_command = data.models_url || '';
+			delete payload.chat_path;
+			delete payload.chat_body_template;
+			delete payload.models_url;
+			delete payload.stream_enabled;
+			delete payload.start_command;
+			delete payload.models_format;
+		}
+
+		// For OpenCode Server workers: encode start_command into arguments JSON
+		if (data.connection_type === 'opencode_serve') {
+			const paths = { start_command: data.start_command || '' };
+			payload.arguments = JSON.stringify(paths);
+			delete payload.start_command;
+		}
+
+		// For CLI workers: encode arguments + models_command
+		if (data.connection_type === 'cli') {
+			payload.models_command = data.models_command || '';
+		}
+
+		let newList;
+		if (payload.id) {
+			newList = this.workers.map((w) => (w.id === payload.id ? { ...w, ...payload } : w));
+		} else {
+			const newWorker = { ...payload, id: 0 };
 			newList = [...this.workers, newWorker];
 		}
 		await getApp().SetWorkers(newList);
 		await this.loadWorkers();
+
+		// Save worker-scoped providers to the providers table
+		const workerName = payload.name;
+		if (workerName && Object.keys(workerProviders).length > 0) {
+			for (const [providerName, providerCfg] of Object.entries(workerProviders)) {
+				try {
+					// Map to ProviderConfig format
+					const providerData = {
+						icon: providerCfg.icon || '🔌',
+						color: providerCfg.color || '#6366f1',
+						api_url: providerCfg.api_url || '',
+						type_connection: providerCfg.type_connection || 'openai',
+						strategy: providerCfg.strategy || '',
+						api_keys: [], // No API keys for worker-scoped providers
+						models: providerCfg.models || {},
+					};
+					await (window as any).go.main.App.SaveWorkerProvider(workerName, providerName, providerData);
+				} catch (e) {
+					console.error(`[EntityStore] Failed to save worker provider ${providerName}:`, e);
+				}
+			}
+		}
 	}
 
 	async saveSkill(data: Record<string, any>) {

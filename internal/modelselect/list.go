@@ -20,9 +20,14 @@ type Selector struct{ db *db.Store }
 
 func New(db *db.Store) *Selector { return &Selector{db: db} }
 
-// List varre todos os providers e junta todos os modelos.
+// List varre todos os providers do worker 'ada' (padrão) e junta todos os modelos.
 func (s *Selector) List() []ModelEntry {
-	providers := s.db.ListProviders()
+	return s.ListByWorker("ada")
+}
+
+// ListByWorker varre apenas providers de um worker específico.
+func (s *Selector) ListByWorker(worker string) []ModelEntry {
+	providers := s.db.ListProvidersByWorker(worker)
 	out := []ModelEntry{}
 	for providerName, cfg := range providers {
 		for modelName := range cfg.Models {
@@ -38,9 +43,13 @@ func (s *Selector) List() []ModelEntry {
 	return out
 }
 
-// Pick resolves uma chave "provider/model" para entry real.
-func (s *Selector) Pick(key string) (ModelEntry, bool) {
-	for _, e := range s.List() {
+// Pick resolve uma chave "provider/model" para entry real, filtrando pelo worker informado.
+func (s *Selector) Pick(key string, worker ...string) (ModelEntry, bool) {
+	w := "ada"
+	if len(worker) > 0 {
+		w = worker[0]
+	}
+	for _, e := range s.ListByWorker(w) {
 		if e.Key == key {
 			return e, true
 		}
@@ -48,9 +57,13 @@ func (s *Selector) Pick(key string) (ModelEntry, bool) {
 	return ModelEntry{}, false
 }
 
-// Default retorna o primeiro modelo listado, ou "" se vazio.
-func (s *Selector) Default() string {
-	list := s.List()
+// Default retorna o primeiro modelo listado do worker informado, ou "" se vazio.
+func (s *Selector) Default(worker ...string) string {
+	w := "ada"
+	if len(worker) > 0 {
+		w = worker[0]
+	}
+	list := s.ListByWorker(w)
 	if len(list) == 0 {
 		return ""
 	}

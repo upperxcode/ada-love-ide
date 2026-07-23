@@ -15,8 +15,10 @@
 	import APIKeyManager from './APIKeyManager.svelte';
 	import ModelListCollapsible from './ModelListCollapsible.svelte';
 	import ModelManagerDialog from './ModelManagerDialog.svelte';
+	import WorkerProviderDialog from './WorkerProviderDialog.svelte';
 	import { providersStore } from '$lib/stores/providers.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { StartURLWorkerServer, StopURLWorkerServer, GetURLWorkerStatus } from '../../../../wailsjs/go/main/App';
 
 	export interface FieldConfig {
 		key: string;
@@ -32,6 +34,9 @@
 		decimals?: boolean;
 		expandable?: boolean;
 		fullWidth?: boolean;
+		cliOnly?: boolean;
+		urlOnly?: boolean;
+		opencodeServeOnly?: boolean;
 	}
 
 	interface EntityEditDialogProps {
@@ -55,6 +60,8 @@
 	let formData = $state<Record<string, any>>({});
 	let testing = $state(false);
 	let managerOpen = $state(false);
+	let workerProviderOpen = $state(false);
+	let workerProviders = $state<Record<string, any>>({});
 
 	// ── Derived header state ──
 	let headerIcon = $derived(formData.icon ?? '📄');
@@ -85,6 +92,22 @@
 			// (empty might mean it's still loading)
 			if (models.length > 0 && !models.some((m) => m.name === formData.model)) {
 				formData = { ...formData, model: '' };
+			}
+		}
+	});
+
+	// Load worker-scoped providers when editing a worker
+	$effect(() => {
+		if (open && entityType === 'workers' && entity?.name) {
+			const app = (window as any).go?.main?.App;
+			if (app?.GetProvidersByWorker) {
+				app.GetProvidersByWorker(entity.name).then((provs: Record<string, any>) => {
+					workerProviders = provs || {};
+					formData = { ...formData, providers: provs || {} };
+				}).catch((e: any) => {
+					console.error('[EntityEditDialog] Failed to load worker providers:', e);
+					workerProviders = {};
+				});
 			}
 		}
 	});
@@ -151,20 +174,78 @@
 	}
 
 	// ── Visibility helper ──
-	function isFieldVisible(key: string): boolean {
-		if (entityType !== 'MCP') return true;
-		
-		const connectType = formData.connect_type || 'stdio';
-		
-		if (connectType === 'stdio') {
-			// Hide URL, Timeout, OAuth for stdio
-			return !['url', 'timeout', 'oauth_client_id'].includes(key);
-		} else if (connectType === 'sse') {
-			// Hide Command, Arguments for sse
-			return !['command', 'arguments'].includes(key);
+	function isFieldVisible(key: string, field: FieldConfig): boolean {
+		if (entityType === 'MCP') {
+			const connectType = formData.connect_type || 'stdio';
+			
+			if (connectType === 'stdio') {
+				return !['url', 'timeout', 'oauth_client_id'].includes(key);
+			} else if (connectType === 'sse') {
+				return !['command', 'arguments'].includes(key);
+			}
+			
+			return true;
 		}
-		
+
+		if (field.cliOnly) {
+			return formData.connection_type === 'cli';
+		}
+
+		if (field.urlOnly) {
+			return formData.connection_type === 'url';
+		}
+
+		if (field.opencodeServeOnly) {
+			return formData.connection_type === 'opencode_serve';
+		}
+
 		return true;
+	}
+
+	// ── Collapsible sections ──
+	function hasVisibleCLIFields(): boolean {
+		return formData.connection_type === 'cli';
+	}
+	function hasVisibleURLFields(): boolean {
+		return formData.connection_type === 'url' || formData.connection_type === 'opencode_serve';
+	}
+
+	// ── Server management ──
+	let serverStarting = $state(false);
+	let serverRunning = $state(false);
+
+	async function checkServerStatus() {
+		if (!formData.name) return;
+		try {
+			const status = await GetURLWorkerStatus(formData.name);
+			serverRunning = !!status.running;
+		} catch {
+			serverRunning = false;
+		}
+	}
+
+	async function toggleServer() {
+		if (!formData.name) return;
+		if (serverRunning) {
+			try {
+				await StopURLWorkerServer(formData.name);
+				serverRunning = false;
+				toastStore.success('Server stopped');
+			} catch (e) {
+				toastStore.error('Failed to stop server', String(e));
+			}
+		} else {
+			serverStarting = true;
+			try {
+				await StartURLWorkerServer(formData.name);
+				serverRunning = true;
+				toastStore.success('Server started successfully');
+			} catch (e) {
+				toastStore.error('Failed to start server', String(e));
+			} finally {
+				serverStarting = false;
+			}
+		}
 	}
 
 	function updateField(key: string, value: any) {
@@ -196,7 +277,7 @@
 
 			<!-- ── Form (row-based layout) ── -->
 			<div class="flex-1 overflow-y-auto bg-[var(--surface-form)]">
-				{#each fields.filter(f => isFieldVisible(f.key)) as field (field.key)}
+				{#each fields.filter(f => isFieldVisible(f.key, f) && !f.urlOnly) as field (field.key)}
 					<!-- ── Spacer top ── -->
 					<div class="px-5 w-full h-[10px]"></div>
 					<!-- Full-width fields: label on top, component below -->
@@ -363,6 +444,162 @@
 						</div>
 					{/if}
 				{/each}
+
+				<!-- ── URL/API Collapsible Configuration ── -->
+				{#if hasVisibleURLFields()}
+					<div class="px-5 py-2">
+						<details class="group">
+							<summary class="flex items-center gap-2 cursor-pointer py-2 select-none list-none">
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-90 shrink-0" style="color: var(--text-faint)"><polyline points="9 18 15 12 9 6"/></svg>
+								<span class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--text-secondary)">{formData.connection_type === 'opencode_serve' ? 'Server Configuration' : 'URL/API Configuration'}</span>
+								<div class="flex-1 h-px" style="background: var(--border-primary)"></div>
+							</summary>
+							<div class="flex flex-col pt-1">
+								{#each fields.filter(f => isFieldVisible(f.key, f) && (f.urlOnly || f.opencodeServeOnly)) as field (field.key)}
+									<div class="px-0 w-full h-[10px]"></div>
+									{#if field.fullWidth}
+										<div class="pb-3">
+											{#if field.key === 'environment'}
+												<EnvEditor
+													label={field.label}
+													value={formData[field.key] ?? '{}'}
+													onchange={(v) => updateField(field.key, v)}
+												/>
+											{:else}
+												<ExpandableTextarea
+													id="field-{field.key}"
+													label={field.label}
+													value={formData[field.key] ?? ''}
+													oninput={(v) => updateField(field.key, v)}
+													placeholder={field.placeholder}
+													minHeight={80}
+													class="w-full"
+													textareaClass="w-full"
+												/>
+											{/if}
+										</div>
+									{:else}
+										<div class="divide-y divide-[var(--border-primary)]">
+											<div>
+												<SettingRow label={field.label} description={field.description}>
+													{#if field.type === 'toggle'}
+														<Switch
+															checked={!!formData[field.key]}
+															onCheckedChange={(v) => updateField(field.key, v)}
+														/>
+													{:else}
+														<input
+															type="text"
+															value={formData[field.key] ?? ''}
+															oninput={(e) => updateField(field.key, (e.target as HTMLInputElement).value)}
+															placeholder={field.placeholder}
+															class={cn(inputBase, 'w-full truncate')}
+															style="color: var(--text-primary)"
+														/>
+													{/if}
+												</SettingRow>
+											</div>
+										</div>
+									{/if}
+								{/each}
+
+								<!-- ── Server controls ── -->
+								<div class="px-0 w-full h-[10px]"></div>
+								<div class="flex items-center gap-3 px-0 py-2">
+									<div class="flex items-center gap-1.5">
+										<div class="w-2 h-2 rounded-full" style="background-color: {serverRunning ? 'var(--status-success)' : 'var(--text-faint)'}"></div>
+										<span class="text-[11px] font-medium" style="color: {serverRunning ? 'var(--status-success)' : 'var(--text-muted)'}">
+											{serverRunning ? 'Running' : 'Stopped'}
+										</span>
+									</div>
+									<button
+										type="button"
+										onclick={toggleServer}
+										disabled={serverStarting}
+										class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.97]"
+										style="background-color: {serverRunning ? 'var(--status-error)' : 'var(--accent-primary)'}; color: white"
+									>
+										{#if serverStarting}
+											<Icon name="loader" size={12} class="animate-spin" />
+											Starting...
+										{:else}
+											{serverRunning ? 'Stop Server' : 'Start Server'}
+										{/if}
+									</button>
+									<button
+										type="button"
+										onclick={checkServerStatus}
+										class="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] cursor-pointer transition-colors hover:bg-[var(--surface-hover)]"
+										style="color: var(--text-muted)"
+									>
+										<Icon name="refresh" size={11} />
+										Refresh
+									</button>
+								</div>
+							</div>
+						</details>
+					</div>
+				{/if}
+
+				<!-- ── Provider Configuration (workers only) ── -->
+				{#if entityType === 'workers' && formData.connection_type !== 'ada'}
+					<div class="px-5 py-2">
+						<details class="group">
+							<summary class="flex items-center gap-2 cursor-pointer py-2 select-none list-none">
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-90 shrink-0" style="color: var(--text-faint)"><polyline points="9 18 15 12 9 6"/></svg>
+								<span class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--text-secondary)">Providers &amp; Models</span>
+								<div class="flex-1 h-px" style="background: var(--border-primary)"></div>
+							</summary>
+							<div class="flex flex-col pt-1 gap-3">
+								{#if Object.keys(workerProviders).length > 0}
+									<div class="flex flex-col gap-2">
+										{#each Object.entries(workerProviders) as [provName, provCfg]}
+											<div class="flex items-center justify-between px-3 py-2 rounded-lg border border-[var(--border-primary)] bg-[var(--surface-elevated)]">
+												<div class="flex items-center gap-2">
+													<span class="text-[13px] font-medium" style="color: var(--text-primary)">{provName}</span>
+													<span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-hover)]" style="color: var(--text-muted)">{provCfg.type_connection || 'openai'}</span>
+												</div>
+												<div class="flex items-center gap-2">
+													<span class="text-[10px]" style="color: var(--text-faint)">
+														{Object.keys(provCfg.models || {}).length} models
+													</span>
+													<button
+														type="button"
+														onclick={() => {
+															const updated = { ...workerProviders };
+															delete updated[provName];
+															workerProviders = updated;
+															formData = { ...formData, providers: updated };
+														}}
+														class="text-[var(--status-error)] hover:bg-[var(--status-error)]/10 p-1 rounded cursor-pointer"
+													>
+														<Icon name="trash-2" size={13} />
+													</button>
+												</div>
+											</div>
+										{/each}
+									</div>
+								{:else}
+									<div class="flex flex-col items-center justify-center py-4 border border-dashed border-[var(--border-primary)] rounded-lg opacity-50">
+										<Icon name="cube" size={20} class="mb-1" />
+										<p class="text-[10px] uppercase font-bold tracking-widest" style="color: var(--text-muted)">No providers configured</p>
+									</div>
+								{/if}
+
+								<button
+									type="button"
+									onclick={() => (workerProviderOpen = true)}
+									class="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/5 hover:bg-[var(--accent-primary)]/10 transition-colors text-[11px] font-semibold cursor-pointer"
+									style="color: var(--accent-primary)"
+								>
+									<Icon name="plus" size={14} />
+									Add Provider
+								</button>
+							</div>
+						</details>
+					</div>
+				{/if}
+
 			<!-- ── Spacer bottom ── -->
 			<div class="px-5 w-full h-[10px]"></div>
 			</div>
@@ -434,4 +671,16 @@
 		apiKeys={formData.api_keys || '[]'}
 		currentModels={formData.models || {}}
 		onSelect={(newModels) => updateField('models', newModels)}
+	/>
+
+	<WorkerProviderDialog
+		open={workerProviderOpen}
+		workerName={formData.name || ''}
+		onClose={() => (workerProviderOpen = false)}
+		onSave={(provName, provCfg) => {
+			const updated = { ...workerProviders, [provName]: provCfg };
+			workerProviders = updated;
+			formData = { ...formData, providers: updated };
+			workerProviderOpen = false;
+		}}
 	/>

@@ -18,15 +18,16 @@ type ProviderAPIKey struct {
 	UserKey string `json:"user_key"`
 }
 
-	type ProviderConfig struct {
-		Icon           string                   `json:"icon"`
-		Color          string                   `json:"color"`
-		APIURL         string                   `json:"api_url"`
-		APIKeys        []ProviderAPIKey         `json:"api_keys"`
-		TypeConnection string                   `json:"type_connection"`
-		Strategy       string                   `json:"strategy"`
-		Models         map[string]ModelSettings `json:"models"`
-	}
+type ProviderConfig struct {
+	Icon           string                   `json:"icon"`
+	Color          string                   `json:"color"`
+	APIURL         string                   `json:"api_url"`
+	APIKeys        []ProviderAPIKey         `json:"api_keys"`
+	TypeConnection string                   `json:"type_connection"`
+	Strategy       string                   `json:"strategy"`
+	Models         map[string]ModelSettings `json:"models"`
+	Worker         string                   `json:"worker"`
+}
 
 func New(name string) ProviderConfig {
 	return ProviderConfig{
@@ -35,6 +36,7 @@ func New(name string) ProviderConfig {
 		APIKeys:        []ProviderAPIKey{},
 		Models:         map[string]ModelSettings{},
 		TypeConnection: "openai",
+		Worker:         "ada",
 	}
 }
 

@@ -13,6 +13,16 @@ func (a *App) GetProvidersConfig() map[string]provider.ProviderConfig {
 	return a.eng.DB.ListProviders()
 }
 
+// ListProvidersByWorker devolve todos os providers de um worker específico.
+func (a *App) ListProvidersByWorker(workerName string) map[string]provider.ProviderConfig {
+	return a.eng.DB.ListProvidersByWorker(workerName)
+}
+
+// GetProvidersByWorker devolve todos os providers de um worker específico.
+func (a *App) GetProvidersByWorker(workerName string) map[string]provider.ProviderConfig {
+	return a.eng.DB.ListProvidersByWorker(workerName)
+}
+
 // SaveProvidersConfig persiste todos os providers (stub).
 func (a *App) SaveProvidersConfig() {}
 
@@ -23,6 +33,20 @@ func (a *App) SaveDBProvider(name string, cfg provider.ProviderConfig) {
 
 // DeleteDBProvider remove um provider.
 func (a *App) DeleteDBProvider(name string) {
+	a.eng.DB.DeleteProvider(name)
+}
+
+// SaveWorkerProvider salva/atualiza um provider específico de um worker.
+// O workerName define o vínculo do provider ao worker.
+func (a *App) SaveWorkerProvider(workerName, name string, cfg provider.ProviderConfig) {
+	if cfg.Worker == "" {
+		cfg.Worker = workerName
+	}
+	a.eng.DB.SaveProvider(name, cfg)
+}
+
+// DeleteWorkerProvider remove um provider.
+func (a *App) DeleteWorkerProvider(name string) {
 	a.eng.DB.DeleteProvider(name)
 }
 

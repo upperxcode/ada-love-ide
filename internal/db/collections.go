@@ -32,6 +32,16 @@ func (s *Store) ListProviders() map[string]provider.ProviderConfig {
 	return out
 }
 
+func (s *Store) ListProvidersByWorker(workerName string) map[string]provider.ProviderConfig {
+	ctx := context.Background()
+	raw, _ := s.providers.ListProvidersByWorker(ctx, workerName)
+	out := make(map[string]provider.ProviderConfig)
+	for _, p := range raw {
+		out[p.Name] = adaptProviderToInternal(ctx, s, &p)
+	}
+	return out
+}
+
 func (s *Store) SaveProvider(name string, cfg provider.ProviderConfig) {
 	ctx := context.Background()
 
@@ -40,21 +50,23 @@ func (s *Store) SaveProvider(name string, cfg provider.ProviderConfig) {
 	var providerID int64
 	if err == nil {
 		providerID = existing.ID
-			existing.APIURL = sql.NullString{String: cfg.APIURL, Valid: cfg.APIURL != ""}
-			existing.ConnectionTypes = sql.NullString{String: cfg.TypeConnection, Valid: cfg.TypeConnection != ""}
-			existing.Strategy = sql.NullString{String: cfg.Strategy, Valid: cfg.Strategy != ""}
-			existing.Color = cfg.Color
-			existing.Icon = cfg.Icon
-			_ = s.providers.UpdateProvider(ctx, existing)
-		} else {
-			sp := &storage.Provider{
-				Name:            name,
-				APIURL:          sql.NullString{String: cfg.APIURL, Valid: cfg.APIURL != ""},
-				ConnectionTypes: sql.NullString{String: cfg.TypeConnection, Valid: cfg.TypeConnection != ""},
-				Strategy:        sql.NullString{String: cfg.Strategy, Valid: cfg.Strategy != ""},
-				Color:           cfg.Color,
-				Icon:            cfg.Icon,
-			}
+		existing.APIURL = sql.NullString{String: cfg.APIURL, Valid: cfg.APIURL != ""}
+		existing.ConnectionTypes = sql.NullString{String: cfg.TypeConnection, Valid: cfg.TypeConnection != ""}
+		existing.Strategy = sql.NullString{String: cfg.Strategy, Valid: cfg.Strategy != ""}
+		existing.Color = cfg.Color
+		existing.Icon = cfg.Icon
+		existing.Worker = cfg.Worker
+		_ = s.providers.UpdateProvider(ctx, existing)
+	} else {
+		sp := &storage.Provider{
+			Name:            name,
+			APIURL:          sql.NullString{String: cfg.APIURL, Valid: cfg.APIURL != ""},
+			ConnectionTypes: sql.NullString{String: cfg.TypeConnection, Valid: cfg.TypeConnection != ""},
+			Strategy:        sql.NullString{String: cfg.Strategy, Valid: cfg.Strategy != ""},
+			Color:           cfg.Color,
+			Icon:            cfg.Icon,
+			Worker:          cfg.Worker,
+		}
 		_ = s.providers.CreateProvider(ctx, sp)
 		p, _ := s.providers.GetProviderByName(ctx, name)
 		providerID = p.ID
@@ -106,6 +118,7 @@ func (s *Store) DeleteProvider(name string) {
 			APIURL:         p.APIURL.String,
 			TypeConnection: p.ConnectionTypes.String,
 			Strategy:       p.Strategy.String,
+			Worker:         p.Worker,
 			APIKeys:        []provider.ProviderAPIKey{},
 			Models:         map[string]provider.ModelSettings{},
 		}
@@ -823,26 +836,51 @@ func (s *Store) GetFixedModel(name string) (provider, model string, tools []stri
 
 func (s *Store) ListFixedModels() []map[string]any {
 	ctx := context.Background()
-	items, err := s.fixedModels.ListFixedModels(ctx)
+	fmt.Println("[FixedModel] Querying fixed_models directly...")
+	// Direct SQL query to avoid any storage module issues
+	rows, err := s.engine.DB().QueryContext(ctx, "SELECT id, name, provider, model FROM fixed_models")
 	if err != nil {
-		fmt.Printf("[FixedModel] ListFixedModels error: %v\n", err)
+		fmt.Printf("[FixedModel] SQL error: %v\n", err)
 		return nil
 	}
-	fmt.Printf("[FixedModel] ListFixedModels returned %d items\n", len(items))
-	out := make([]map[string]any, 0, len(items))
-	for _, m := range items {
-		t, _ := s.fixedModels.ListTools(ctx, m.ID)
-		tools := make([]string, len(t))
-		for i, tool := range t {
-			tools[i] = tool.Tool
+	defer rows.Close()
+	var out []map[string]any
+	for rows.Next() {
+		var id int64
+		var name, provider, model string
+		if err := rows.Scan(&id, &name, &provider, &model); err != nil {
+			fmt.Printf("[FixedModel] Scan error: %v\n", err)
+			continue
+		}
+		fmt.Printf("[FixedModel] Found: id=%d name=%s provider=%s model=%s\n", id, name, provider, model)
+		// Fetch tools for this model
+		toolRows, err := s.engine.DB().QueryContext(ctx, "SELECT tool FROM fixed_model_tools WHERE fixed_model_id = ?", id)
+		if err != nil {
+			fmt.Printf("[FixedModel] Tools query error: %v\n", err)
+		}
+		var tools []string
+		if toolRows != nil {
+			for toolRows.Next() {
+				var tool string
+				toolRows.Scan(&tool)
+				tools = append(tools, tool)
+			}
+			toolRows.Close()
+		}
+		if tools == nil {
+			tools = []string{}
 		}
 		out = append(out, map[string]any{
-			"name":     m.Name,
-			"provider": m.Provider,
-			"model":    m.Model,
+			"name":     name,
+			"provider": provider,
+			"model":    model,
 			"tools":    tools,
 		})
 	}
+	if out == nil {
+		out = []map[string]any{}
+	}
+	fmt.Printf("[FixedModel] Direct query returned %d items\n", len(out))
 	return out
 }
 

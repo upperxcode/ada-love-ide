@@ -17,6 +17,7 @@ import (
 	core "ada-love-core"
 	"ada-love-ide/internal/db"
 	"ada-love-ide/internal/icons"
+	"ada-love-ide/internal/knowledge"
 	"ada-love-ide/internal/modelselect"
 	"ada-love-ide/internal/plugins"
 	"ada-love-ide/internal/sessionfetch"
@@ -52,7 +53,8 @@ type Engine struct {
 	WorkspaceDir string
 	CodeIndexer  *codeIndexerStore.Store
 	ToolRegistry *adatools.Registry
-	Git          *adaGit.GitService
+	Git           *adaGit.GitService
+	KnowledgeIndex *knowledge.Index
 
 	ctx context.Context
 }
@@ -87,6 +89,11 @@ func New() (*Engine, error) {
 
 	for name, p := range providers {
 		if p.APIURL == "" || p.TypeConnection == "" {
+			continue
+		}
+
+		// Only use providers scoped to 'ada' worker for the main engine
+		if p.Worker != "" && p.Worker != "ada" {
 			continue
 		}
 
@@ -310,6 +317,39 @@ func New() (*Engine, error) {
 	os.MkdirAll(skillsDir, 0o755)
 	skm := skillmanager.New(skillsDir)
 
+	// ── Semantic Knowledge Index ───────────────────────────────
+	var knowledgeIndex *knowledge.Index
+	embedProvider, embedModel, _ := store.GetFixedModel("embedding")
+	if embedProvider != "" && embedModel != "" {
+		if pCfg, ok := providers[embedProvider]; ok && pCfg.APIURL != "" {
+			apiKey := ""
+			if len(pCfg.APIKeys) > 0 {
+				apiKey = pCfg.APIKeys[0].Key
+			}
+			emb := knowledge.NewEmbedder(embedProvider, embedModel, pCfg.APIURL, apiKey)
+			knowledgeIndex = knowledge.NewIndex(emb)
+			fmt.Printf("[Engine] Semantic knowledge index ready (%s/%s)\n", embedProvider, embedModel)
+
+			// Index active workspace on startup
+			wsPath := store.ActiveWorkspace()
+			if wsPath != "" {
+				wsID := store.WorkspaceIDByPath(wsPath)
+				if wsID > 0 {
+					if ws, err := store.GetWorkspace(wsPath); err == nil && len(ws.Knowledge) > 0 {
+						ctx := context.Background()
+						knowledgeIndex.IndexWorkspace(ctx, wsID, ws.Knowledge)
+						fmt.Printf("[Engine] Indexed %d knowledge items for workspace %q\n",
+							knowledgeIndex.Count(wsID), ws.Title)
+					}
+				}
+			}
+		} else {
+			fmt.Printf("[Engine] WARNING: embedding provider %q not found or has no API URL\n", embedProvider)
+		}
+	} else {
+		fmt.Println("[Engine] WARNING: embedding model not configured — semantic knowledge search disabled")
+	}
+
 	// Extra context layers (.AGENTS.md, skills, knowledge, code-indexer)
 	orch.ExtraContext = func(ctx context.Context, sessionID, userInput string) string {
 		sess, ok := store.GetSession(sessionID)
@@ -334,13 +374,20 @@ func New() (*Engine, error) {
 		layers.WriteString("Instructions: Create files directly in this directory.\n")
 		layers.WriteString("Do NOT create subdirectories for the project unless explicitly requested.\n\n")
 
-		// Golden rules (AGENT.md > .AGENT.md > .AGENTS.md > ...)
-		agentsPath, _ := findAgentsFile(wsDir)
-		if agentsPath != "" {
-			if data, err := os.ReadFile(agentsPath); err == nil && len(data) > 0 {
-				layers.WriteString("=== ARCHITECTURAL GOLDEN RULES ===\n")
-				layers.Write(data)
-				layers.WriteString("\n")
+		// Workspace summary (substitui AGENT.md + estrutura + manifesto)
+		if ws.Summary != "" {
+			layers.WriteString("=== WORKSPACE SUMMARY ===\n")
+			layers.WriteString(ws.Summary)
+			layers.WriteString("\n\n")
+		} else {
+			// Fallback: Golden rules (AGENT.md > .AGENT.md > .AGENTS.md > ...)
+			agentsPath, _ := findAgentsFile(wsDir)
+			if agentsPath != "" {
+				if data, err := os.ReadFile(agentsPath); err == nil && len(data) > 0 {
+					layers.WriteString("=== ARCHITECTURAL GOLDEN RULES ===\n")
+					layers.Write(data)
+					layers.WriteString("\n")
+				}
 			}
 		}
 
@@ -358,13 +405,61 @@ func New() (*Engine, error) {
 			}
 		}
 
-		// Knowledge (if small enough)
+		// Knowledge — busca semântica quando possível, fallback para completo
 		if len(ws.Knowledge) > 0 {
-			kb := strings.Join(ws.Knowledge, "\n")
-			if compactor.CountTokens(kb) < 2000 {
-				layers.WriteString("=== KNOWLEDGE ===\n")
-				layers.WriteString(kb)
-				layers.WriteString("\n")
+			if knowledgeIndex != nil && userInput != "" {
+				wsID := store.WorkspaceIDByPath(ws.Path)
+				if wsID > 0 && knowledgeIndex.Count(wsID) > 0 {
+					results := knowledgeIndex.Search(ctx, userInput, wsID, 5)
+					if len(results) > 0 {
+						layers.WriteString("=== KNOWLEDGE (relevant) ===\n")
+						layers.WriteString(strings.Join(results, "\n---\n"))
+						layers.WriteString("\n")
+					}
+				} else {
+					// Not indexed yet — fallback to full dump
+					kb := strings.Join(ws.Knowledge, "\n")
+					if compactor.CountTokens(kb) < 2000 {
+						layers.WriteString("=== KNOWLEDGE ===\n")
+						layers.WriteString(kb)
+						layers.WriteString("\n")
+					}
+				}
+			} else {
+				// No semantic index — fallback to full dump
+				kb := strings.Join(ws.Knowledge, "\n")
+				if compactor.CountTokens(kb) < 2000 {
+					layers.WriteString("=== KNOWLEDGE ===\n")
+					layers.WriteString(kb)
+					layers.WriteString("\n")
+				}
+			}
+		}
+
+		// Session attachments (file contents fed as context)
+		attachments, err := store.Attachments().ListAttachments(ctx, sessionID)
+		if err == nil && len(attachments) > 0 {
+			var attachBuf strings.Builder
+			attachTokens := 0
+			maxAttachTokens := 4000
+			for _, a := range attachments {
+				data, readErr := os.ReadFile(a.FilePath)
+				if readErr != nil {
+					continue
+				}
+				attachBuf.WriteString("--- ")
+				attachBuf.WriteString(a.FileName)
+				attachBuf.WriteString(" ---\n")
+				attachBuf.Write(data)
+				attachBuf.WriteString("\n\n")
+				attachTokens = compactor.CountTokens(attachBuf.String())
+				if attachTokens > maxAttachTokens {
+					break
+				}
+			}
+			if attachBuf.Len() > 0 {
+				layers.WriteString("=== ATTACHMENTS ===\n")
+				layers.WriteString(attachBuf.String())
 			}
 		}
 
@@ -572,22 +667,23 @@ func New() (*Engine, error) {
 	))
 
 	return &Engine{
-		DB:           store,
-		Saver:        saver,
-		Fetcher:      fetcher,
-		Models:       selector,
-		Chat:         ch,
-		Skills:       skm,
-		SkillReg:     regMgr,
-		Orch:         orch,
-		Plugins:      pluginMgr,
+		DB:            store,
+		Saver:         saver,
+		Fetcher:       fetcher,
+		Models:        selector,
+		Chat:          ch,
+		Skills:        skm,
+		SkillReg:      regMgr,
+		Orch:          orch,
+		Plugins:       pluginMgr,
 		SpecWizardMgr: specWizardMgr,
-		Router:       router,
-		Executor:     taskExecutor,
-		WorkspaceDir: workspaceDir,
-		CodeIndexer:  codeIdxStore,
-		ToolRegistry: toolReg,
-		Git:          adaGit.NewGitService(),
+		Router:        router,
+		Executor:      taskExecutor,
+		WorkspaceDir:  workspaceDir,
+		CodeIndexer:   codeIdxStore,
+		ToolRegistry:  toolReg,
+		Git:           adaGit.NewGitService(),
+		KnowledgeIndex: knowledgeIndex,
 	}, nil
 }
 
@@ -753,13 +849,21 @@ func (e *Engine) buildBreakdown(sess *core.Session) []ContextBreakdownItem {
 		items = append(items, ContextBreakdownItem{Name: "Messages", Tokens: msgsTokens, Color: "#3b82f6"})
 	}
 
-	// ── Golden rules (AGENT.md > .AGENT.md > .AGENTS.md …) ──────
-	agentPath, _ := findAgentsFile(wsDir)
-	if agentPath != "" {
-		if data, err := os.ReadFile(agentPath); err == nil && len(data) > 0 {
-			t := ct(string(data))
-			if t > 0 {
-				items = append(items, ContextBreakdownItem{Name: "Golden rules", Tokens: t, Color: "#6366f1"})
+	// ── Workspace Summary (substitui AGENT.md + estrutura + manifesto) ──
+	if ws.Summary != "" {
+		t := ct(ws.Summary)
+		if t > 0 {
+			items = append(items, ContextBreakdownItem{Name: "Workspace Summary", Tokens: t, Color: "#10b981"})
+		}
+	} else {
+		// ── Golden rules (AGENT.md > .AGENT.md > .AGENTS.md …) ──────
+		agentPath, _ := findAgentsFile(wsDir)
+		if agentPath != "" {
+			if data, err := os.ReadFile(agentPath); err == nil && len(data) > 0 {
+				t := ct(string(data))
+				if t > 0 {
+					items = append(items, ContextBreakdownItem{Name: "Golden rules", Tokens: t, Color: "#6366f1"})
+				}
 			}
 		}
 	}
@@ -783,6 +887,28 @@ func (e *Engine) buildBreakdown(sess *core.Session) []ContextBreakdownItem {
 		kbTokens := ct(kb)
 		if kbTokens > 0 && kbTokens < 2000 {
 			items = append(items, ContextBreakdownItem{Name: "Knowledge", Tokens: kbTokens, Color: "#a855f7"})
+		}
+	}
+
+	// ── Session Attachments ─────────────────────────────────────
+	if sess != nil {
+		attachments, err := e.DB.Attachments().ListAttachments(context.Background(), sess.ID)
+		if err == nil && len(attachments) > 0 {
+			attachTokens := 0
+			for _, a := range attachments {
+				data, readErr := os.ReadFile(a.FilePath)
+				if readErr != nil {
+					continue
+				}
+				attachTokens += ct(string(data))
+			}
+			if attachTokens > 0 {
+				items = append(items, ContextBreakdownItem{
+					Name:   "Attachments",
+					Tokens: attachTokens,
+					Color:  "#f97316",
+				})
+			}
 		}
 	}
 
